@@ -325,11 +325,20 @@ export function useChat(): UseChatReturn {
       return;
     }
 
-    // Check for error messages
+    // Check for direct status messages (error, stopped, etc.)
     try {
       const jsonData = JSON.parse(processedData);
       if (jsonData.status === 'error') {
         console.error('[useChat] Received error status message:', jsonData);
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
+        finalizeStream();
+        return;
+      }
+      if (jsonData.status === 'stopped') {
+        console.info('[useChat] Received stopped status message:', jsonData);
         if (eventSourceRef.current) {
           eventSourceRef.current.close();
           eventSourceRef.current = null;
@@ -444,13 +453,55 @@ export function useChat(): UseChatReturn {
             break;
 
           case 'tool_completed':
+          case 'tool_failed':
+          case 'tool_error':
+            // Check for agent termination signal in metadata
+            if (parsedMetadata.agent_should_terminate) {
+              console.debug(
+                '[useChat] Agent termination signal detected from tool completion',
+              );
+              // Don't finalize immediately - wait for final finish status or thread_run_end
+            }
             setStreamingToolCall(null);
+            break;
+
+          case 'finish':
+            // Handle finish reasons
+            if (parsedContent.finish_reason === 'agent_terminated') {
+              console.debug(
+                '[useChat] Agent terminated finish reason received',
+              );
+              // Don't finalize here, wait for thread_run_end or completion message
+            } else if (parsedContent.finish_reason === 'xml_tool_limit_reached') {
+              console.debug(
+                '[useChat] XML tool limit reached finish reason received',
+              );
+              // Don't finalize here, wait for thread_run_end or completion message
+            }
+            // Other finish reasons (stop, length) don't need special handling
             break;
 
           case 'thread_run_end':
             // Don't finalize here - wait for explicit completion
             console.log('[useChat] thread_run_end received');
             break;
+        }
+        break;
+
+      case 'llm_response_start':
+        // Track LLM response start - informational only, no UI changes needed
+        console.debug(
+          `[useChat] LLM response started: ${parsedContent.llm_response_id} (call #${parsedContent.auto_continue_count || 0})`,
+        );
+        break;
+
+      case 'llm_response_end':
+        // Extract context usage from llm_response_end if needed
+        // Log if usage was estimated (helpful for debugging billing issues)
+        if (parsedContent.usage?.estimated) {
+          console.warn(
+            `[useChat] LLM response ended with estimated usage (stream may have stopped early)`,
+          );
         }
         break;
     }

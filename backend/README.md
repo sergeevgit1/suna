@@ -9,7 +9,7 @@ cd /backend
 
 
 ```bash
-docker compose up redis
+redis-server
 ```
 
 
@@ -17,7 +17,7 @@ docker compose up redis
 
 
 ```bash
-uv run dramatiq --processes 4 --threads 4 run_agent_background
+uv run dramatiq run_agent_background
 ```
 
 1.3 Running the main server

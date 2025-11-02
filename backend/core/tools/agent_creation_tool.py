@@ -1,12 +1,16 @@
 import json
 from typing import Optional, Dict, Any, List
 from uuid import uuid4
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.agentpress.thread_manager import ThreadManager
 from core.utils.logger import logger
 from core.utils.core_tools_helper import ensure_core_tools_enabled
 from core.utils.config import config
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Agent Builder",
     description="Create and configure new AI agents with custom capabilities",

@@ -26,9 +26,13 @@ import { ShareThreadLayout } from './_components/ShareThreadLayout';
 interface StreamingToolCall {
   id?: string;
   name?: string;
-  arguments?: string;
+  function_name?: string; // Backend sends this in status messages
+  arguments?: string | Record<string, any>; // Can be string or dict (from xml_tool_call.parameters)
   index?: number;
+  tool_index?: number; // Backend sends this in status messages
   xml_tag_name?: string;
+  status_type?: string; // For status messages (e.g., 'tool_started')
+  role?: string; // Usually 'assistant' for tool calls
 }
 
 export default function ShareThreadPage({
@@ -158,15 +162,21 @@ export default function ShareThreadPage({
       if (!toolCall) return;
 
       // Normalize the tool name like the project thread page does
-      const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
+      // Backend sends function_name in status messages, fallback to name/xml_tag_name
+      const rawToolName = toolCall.function_name || toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
 
       // If user explicitly closed the panel, don't reopen it for streaming calls
       if (userClosedPanelRef.current) return;
 
-      // Create a properly formatted tool call input for the streaming tool
-      // that matches the format of historical tool calls
-      const toolArguments = toolCall.arguments || '';
+      // Handle arguments as either string or dict (backend sends dict from xml_tool_call.parameters)
+      let toolArguments: string = '';
+      if (typeof toolCall.arguments === 'string') {
+        toolArguments = toolCall.arguments;
+      } else if (toolCall.arguments && typeof toolCall.arguments === 'object') {
+        // Convert dict to string representation for display
+        toolArguments = JSON.stringify(toolCall.arguments);
+      }
 
       // Format the arguments in a way that matches the expected XML format for each tool
       // This ensures the specialized tool views render correctly

@@ -1,5 +1,5 @@
 from typing import Optional
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 import httpx
@@ -8,6 +8,10 @@ import uuid
 from litellm import aimage_generation, aimage_edit
 import base64
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Design & Graphics",
     description="Generate images and graphics for social media, websites, and more",

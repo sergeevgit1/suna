@@ -1,13 +1,17 @@
 import json
 from typing import Union, Dict, Any
 
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.tools.data_providers.LinkedinProvider import LinkedinProvider
 from core.tools.data_providers.YahooFinanceProvider import YahooFinanceProvider
 from core.tools.data_providers.AmazonProvider import AmazonProvider
 from core.tools.data_providers.ZillowProvider import ZillowProvider
 from core.tools.data_providers.TwitterProvider import TwitterProvider
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Data Providers",
     description="Access data from LinkedIn, Yahoo Finance, Amazon, Zillow, and Twitter",

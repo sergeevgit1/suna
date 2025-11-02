@@ -1,7 +1,11 @@
 from typing import List, Optional, Union
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.utils.logger import logger
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Chat & Messages",
     description="Talk with users, ask questions, and share updates about your work",

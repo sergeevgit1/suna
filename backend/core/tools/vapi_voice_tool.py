@@ -6,7 +6,7 @@ import phonenumbers
 from phonenumbers import NumberParseException, geocoder
 import structlog
 import re
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.utils.config import config
 from core.agentpress.thread_manager import ThreadManager
 from core.utils.logger import logger
@@ -275,6 +275,10 @@ def validate_call_safety(phone_number: str, first_message: str, system_prompt: O
     
     return True, None
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Voice Calls",
     description="Make and manage voice phone calls with AI agents",

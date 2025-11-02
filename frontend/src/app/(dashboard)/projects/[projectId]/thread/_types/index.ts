@@ -25,9 +25,13 @@ export interface ApiMessageType extends BaseApiMessageType {
 export interface StreamingToolCall {
   id?: string;
   name?: string;
-  arguments?: string;
+  function_name?: string; // Backend sends this in status messages
+  arguments?: string | Record<string, any>; // Can be string or dict (from xml_tool_call.parameters)
   index?: number;
+  tool_index?: number; // Backend sends this in status messages
   xml_tag_name?: string;
+  status_type?: string; // For status messages (e.g., 'tool_started')
+  role?: string; // Usually 'assistant' for tool calls
 }
 
 export interface BillingData {

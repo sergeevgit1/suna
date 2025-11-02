@@ -3,11 +3,15 @@ import asyncio
 import json
 import aiohttp
 import time
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.utils.config import config
 from core.utils.logger import logger
 from core.agentpress.thread_manager import ThreadManager
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Academic Research",
     description="Search and analyze academic papers, authors, and scientific research",

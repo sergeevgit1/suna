@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Optional, Dict, Any, List
-from core.agentpress.tool import openapi_schema, tool_metadata
+from core.agentpress.tool import openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.utils.logger import logger
@@ -13,6 +13,10 @@ from pathlib import Path
 from core.agentpress.tool import ToolResult
 import html
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Document Creator",
     description="Create and edit professional documents with rich formatting",

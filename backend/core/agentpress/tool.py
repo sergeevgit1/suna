@@ -78,6 +78,17 @@ class MethodMetadata:
     is_core: bool = False
     visible: bool = True
 
+@dataclass
+class ExecutionFlowMetadata:
+    """Container for execution flow metadata.
+    
+    Attributes:
+        default (str): Default flow value ("CONTINUE" or "STOP")
+        allows_override (bool): Whether the flow parameter can be overridden by the LLM
+    """
+    default: str = "CONTINUE"
+    allows_override: bool = True
+
 class Tool(ABC):
     """Abstract base class for all tools.
     
@@ -102,8 +113,10 @@ class Tool(ABC):
         self._schemas: Dict[str, List[ToolSchema]] = {}
         self._metadata: Optional[ToolMetadata] = None
         self._method_metadata: Dict[str, MethodMetadata] = {}
+        self._execution_flow_metadata: Dict[str, ExecutionFlowMetadata] = {}
         # logger.debug(f"Initializing tool class: {self.__class__.__name__}")
         self._register_metadata()
+        self._register_execution_flow()
         self._register_schemas()
 
     def _register_metadata(self):
@@ -116,6 +129,24 @@ class Tool(ABC):
         for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
             if hasattr(method, '__method_metadata__'):
                 self._method_metadata[name] = method.__method_metadata__
+
+    def _register_execution_flow(self):
+        """Register execution flow metadata from class and method decorators."""
+        # Get class-level default execution flow metadata
+        default_flow_meta = None
+        if hasattr(self.__class__, '__execution_flow_metadata__'):
+            default_flow_meta = self.__class__.__execution_flow_metadata__
+        
+        # Register execution flow metadata for all methods
+        # First, inherit from class-level defaults if available
+        # Then, override with method-specific metadata if present
+        for name, method in inspect.getmembers(self, predicate=inspect.ismethod):
+            # Check if method has its own execution flow metadata
+            if hasattr(method, '__execution_flow_metadata__'):
+                self._execution_flow_metadata[name] = method.__execution_flow_metadata__
+            elif default_flow_meta:
+                # Inherit from class-level default
+                self._execution_flow_metadata[name] = default_flow_meta
 
     def _register_schemas(self):
         """Register schemas from all decorated methods."""
@@ -147,6 +178,14 @@ class Tool(ABC):
             Dict mapping method names to their metadata
         """
         return self._method_metadata
+
+    def get_execution_flow_metadata(self) -> Dict[str, ExecutionFlowMetadata]:
+        """Get execution flow metadata for all methods.
+        
+        Returns:
+            Dict mapping method names to their execution flow metadata
+        """
+        return self._execution_flow_metadata
 
     def success_response(self, data: Union[Dict[str, Any], str]) -> ToolResult:
         """Create a successful tool result.
@@ -295,3 +334,50 @@ def method_metadata(
         return func
     return decorator
 
+def execution_flow(
+    default: str = "CONTINUE",
+    allows_override: bool = True
+):
+    """Decorator to set execution flow metadata for a tool class or method.
+    
+    This decorator can be applied at the class level to set defaults for all methods,
+    or at the method level to override the class defaults for specific methods.
+    
+    Args:
+        default: Default flow value ("CONTINUE" or "STOP")
+        allows_override: Whether the flow parameter can be overridden by the LLM
+    
+    Usage:
+        # Class-level (applies to all methods):
+        @execution_flow(
+            default="CONTINUE",
+            allows_override=True
+        )
+        @tool_metadata(...)
+        class MyTool(Tool):
+            ...
+        
+        # Method-level (overrides class defaults):
+        @execution_flow(
+            default="STOP",
+            allows_override=False
+        )
+        @openapi_schema({...})
+        def critical_method(self, ...):
+            ...
+    """
+    def decorator(target):
+        flow_meta = ExecutionFlowMetadata(
+            default=default,
+            allows_override=allows_override
+        )
+        
+        if inspect.isclass(target):
+            # Class decorator - store as class attribute
+            target.__execution_flow_metadata__ = flow_meta
+        else:
+            # Method decorator - store as method attribute
+            target.__execution_flow_metadata__ = flow_meta
+        
+        return target
+    return decorator

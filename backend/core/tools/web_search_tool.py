@@ -1,7 +1,7 @@
 from tavily import AsyncTavilyClient
 import httpx
 from dotenv import load_dotenv
-from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import Tool, ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.utils.config import config
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
@@ -12,6 +12,10 @@ import logging
 
 # TODO: add subpages, etc... in filters as sometimes its necessary 
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Web Search",
     description="Search the internet for information, news, and research",

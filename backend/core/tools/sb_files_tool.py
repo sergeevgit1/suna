@@ -1,4 +1,4 @@
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.files_utils import should_exclude_file, clean_path
 from core.agentpress.thread_manager import ThreadManager
@@ -11,6 +11,10 @@ import openai
 import asyncio
 from typing import Optional
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Files & Folders",
     description="Create, edit, read, and organize files in your workspace",

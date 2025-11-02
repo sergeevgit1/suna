@@ -1,4 +1,4 @@
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.utils.logger import logger
 from typing import List, Dict, Any, Optional
@@ -22,6 +22,10 @@ class Task(BaseModel):
     status: TaskStatus = TaskStatus.PENDING
     section_id: str  # Reference to section ID instead of section name
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Task Management",
     description="Create and track your action plan with organized to-do lists",

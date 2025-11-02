@@ -23,7 +23,7 @@ export interface Message {
 export interface UnifiedMessage {
   message_id: string | null; // null for transient stream chunks
   thread_id: string;
-  type: 'user' | 'assistant' | 'tool' | 'system' | 'status' | 'browser_state' | 'image_context';
+  type: 'user' | 'assistant' | 'tool' | 'system' | 'status' | 'browser_state' | 'image_context' | 'llm_response_start' | 'llm_response_end';
   is_llm_message: boolean;
   content: string; // JSON string from backend
   metadata: string; // JSON string from backend
@@ -65,14 +65,28 @@ export interface ParsedContent {
   role?: 'user' | 'assistant' | 'tool' | 'system';
   content?: string; // The actual text content
   status_type?: string; // For status messages: 'tool_started', 'tool_completed', 'thread_run_end', etc.
+  finish_reason?: string; // For finish status (e.g., 'stop', 'length', 'xml_tool_limit_reached', 'agent_terminated')
   function_name?: string; // For tool calls
   xml_tag_name?: string; // XML tag for tool
   arguments?: any; // Tool arguments
   tool_index?: number; // Index of tool in sequence
+  tool_call_id?: string; // For native tool calls
   result?: any; // For tool results
   is_error?: boolean; // Tool execution error
   message?: string; // Error/status messages
   name?: string; // Tool name
+  llm_response_id?: string; // For llm_response_start/end messages
+  auto_continue_count?: number; // For llm_response_start messages
+  model?: string; // For llm_response_start messages
+  timestamp?: string; // For llm_response_start messages
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+    cache_read_tokens?: number;
+    cache_creation_tokens?: number;
+    estimated?: boolean; // Flag indicating if usage was estimated
+  }; // For llm_response_end messages
   [key: string]: any;
 }
 
@@ -80,7 +94,12 @@ export interface ParsedContent {
 export interface ParsedMetadata {
   stream_status?: 'chunk' | 'complete'; // Streaming status for assistant messages
   thread_run_id?: string;
-  llm_response_id?: string;
+  llm_response_id?: string; // ID for tracking individual LLM responses within a thread run
+  tool_index?: number;
+  assistant_message_id?: string; // Link tool results/statuses back
+  linked_tool_result_message_id?: string; // Link status to tool result
+  agent_should_terminate?: string | boolean; // Signal that agent should stop after this tool
+  parsing_details?: any;
   [key: string]: any;
 }
 

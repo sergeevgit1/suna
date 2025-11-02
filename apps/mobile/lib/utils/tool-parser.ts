@@ -137,19 +137,67 @@ export interface ParsedXmlToolCall {
 
 export function parseXmlToolCalls(content: string): ParsedXmlToolCall[] {
   const toolCalls: ParsedXmlToolCall[] = [];
+  const processedXml = new Set<string>(); // Track processed XML strings to avoid duplicates
 
+  // First, find invoke tags directly in the content (primary method)
+  const invokeRegex = /<invoke\s+name=["']([^"']+)["']>([\s\S]*?)<\/invoke>/gi;
+  let invokeMatch;
+  
+  while ((invokeMatch = invokeRegex.exec(content)) !== null) {
+    const rawXml = invokeMatch[0];
+    
+    // Skip if we've already processed this exact XML
+    if (processedXml.has(rawXml)) {
+      continue;
+    }
+    
+    processedXml.add(rawXml);
+    
+    const functionName = invokeMatch[1];
+    const invokeContent = invokeMatch[2];
+    const parameters: Record<string, any> = {};
+    
+    const paramRegex = /<parameter\s+name=["']([^"']+)["']>([\s\S]*?)<\/parameter>/gi;
+    let paramMatch;
+    
+    while ((paramMatch = paramRegex.exec(invokeContent)) !== null) {
+      const paramName = paramMatch[1];
+      const paramValue = paramMatch[2].trim();
+      
+      parameters[paramName] = parseParameterValue(paramValue);
+    }
+    
+    toolCalls.push({
+      functionName,
+      parameters,
+      rawXml
+    });
+  }
+
+  // Also check inside function_calls blocks for backwards compatibility
+  // Only process invoke tags that weren't already processed
   const functionCallsRegex = /<function_calls>([\s\S]*?)<\/function_calls>/gi;
   let functionCallsMatch;
   
   while ((functionCallsMatch = functionCallsRegex.exec(content)) !== null) {
     const functionCallsContent = functionCallsMatch[1];
     
-    const invokeRegex = /<invoke\s+name=["']([^"']+)["']>([\s\S]*?)<\/invoke>/gi;
-    let invokeMatch;
+    // Reset regex for new content
+    const nestedInvokeRegex = /<invoke\s+name=["']([^"']+)["']>([\s\S]*?)<\/invoke>/gi;
+    let nestedInvokeMatch;
     
-    while ((invokeMatch = invokeRegex.exec(functionCallsContent)) !== null) {
-      const functionName = invokeMatch[1];
-      const invokeContent = invokeMatch[2];
+    while ((nestedInvokeMatch = nestedInvokeRegex.exec(functionCallsContent)) !== null) {
+      const rawXml = nestedInvokeMatch[0];
+      
+      // Skip if we've already processed this exact XML
+      if (processedXml.has(rawXml)) {
+        continue;
+      }
+      
+      processedXml.add(rawXml);
+      
+      const functionName = nestedInvokeMatch[1];
+      const invokeContent = nestedInvokeMatch[2];
       const parameters: Record<string, any> = {};
       
       const paramRegex = /<parameter\s+name=["']([^"']+)["']>([\s\S]*?)<\/parameter>/gi;
@@ -165,7 +213,7 @@ export function parseXmlToolCalls(content: string): ParsedXmlToolCall[] {
       toolCalls.push({
         functionName,
         parameters,
-        rawXml: invokeMatch[0]
+        rawXml
       });
     }
   }
@@ -195,7 +243,8 @@ function parseParameterValue(value: string): any {
 }
 
 export function isNewXmlFormat(content: string): boolean {
-  return /<function_calls>[\s\S]*<invoke\s+name=/.test(content);
+  // Check for invoke tags directly (primary format) or inside function_calls (backwards compatibility)
+  return /<invoke\s+name=/.test(content) || /<function_calls>[\s\S]*<invoke\s+name=/.test(content);
 }
 
 export function preprocessTextOnlyTools(content: string): string {

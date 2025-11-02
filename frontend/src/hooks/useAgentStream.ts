@@ -357,9 +357,10 @@ export function useAgentStream(
         return;
       }
 
-      // --- Check for error messages first ---
+      // --- Check for direct status messages first (error, stopped, etc.) ---
       try {
         const jsonData = JSON.parse(processedData);
+        // Handle error status messages
         if (jsonData.status === 'error') {
           console.error(
             '[useAgentStream] Received error status message:',
@@ -369,6 +370,20 @@ export function useAgentStream(
           setError(errorMessage);
           toast.error(errorMessage, { duration: 15000 });
           callbacks.onError?.(errorMessage);
+          finalizeStream('error', currentRunIdRef.current);
+          return;
+        }
+        // Handle stopped status messages (e.g., billing errors)
+        if (jsonData.status === 'stopped') {
+          console.info(
+            '[useAgentStream] Received stopped status message:',
+            jsonData,
+          );
+          const stopMessage = jsonData.message || 'Agent run stopped';
+          if (jsonData.message) {
+            toast.info(stopMessage, { duration: 10000 });
+          }
+          finalizeStream('stopped', currentRunIdRef.current);
           return;
         }
       } catch (jsonError) {
@@ -399,6 +414,30 @@ export function useAgentStream(
 
       switch (message.type) {
         case 'assistant':
+          // DEBUG: Log assistant message content to see if flow is in raw XML (safely)
+          if (parsedContent.content) {
+            try {
+              const hasInvoke = parsedContent.content.includes('<invoke');
+              const hasFlowInContent = /<parameter\s+name=["']flow["']>/i.test(parsedContent.content);
+              if (hasInvoke) {
+                console.log('[USE-AGENT-STREAM] Assistant message with invoke tags:', {
+                  stream_status: parsedMetadata.stream_status,
+                  hasInvoke,
+                  hasFlowInContent,
+                  contentLength: parsedContent.content.length,
+                });
+                
+                // Try to extract flow directly from content
+                const flowMatches = parsedContent.content.match(/<parameter\s+name=["']flow["']>([^<]+)<\/parameter>/gi);
+                if (flowMatches) {
+                  console.log('[USE-AGENT-STREAM] Found flow parameters in raw content:', flowMatches.length, 'matches');
+                }
+              }
+            } catch (e) {
+              // Silently skip if error (e.g., URL parsing in content)
+            }
+          }
+          
           if (
             parsedMetadata.stream_status === 'chunk' &&
             parsedContent.content
@@ -429,6 +468,27 @@ export function useAgentStream(
         case 'status':
           switch (parsedContent.status_type) {
             case 'tool_started':
+              // DEBUG: Log tool started with arguments (safely)
+              try {
+                // Safely log - don't serialize full arguments that might contain URLs
+                const argsType = typeof parsedContent.arguments;
+                const argsKeys = parsedContent.arguments && typeof parsedContent.arguments === 'object' 
+                  ? Object.keys(parsedContent.arguments) 
+                  : 'N/A';
+                
+                console.log('[USE-AGENT-STREAM] Tool started:', {
+                  function_name: parsedContent.function_name,
+                  xml_tag_name: parsedContent.xml_tag_name,
+                  tool_index: parsedContent.tool_index,
+                  argumentsType: argsType,
+                  argumentsKeys: argsKeys,
+                  hasFlow: parsedContent.arguments && typeof parsedContent.arguments === 'object' && 'flow' in parsedContent.arguments,
+                  flowValue: parsedContent.arguments && typeof parsedContent.arguments === 'object' ? parsedContent.arguments.flow : undefined,
+                });
+              } catch (e) {
+                console.log('[USE-AGENT-STREAM] Tool started (logging skipped):', parsedContent.function_name);
+              }
+              
               setToolCall({
                 role: 'assistant',
                 status_type: 'tool_started',
@@ -441,23 +501,49 @@ export function useAgentStream(
             case 'tool_completed':
             case 'tool_failed':
             case 'tool_error':
+              // Check for agent termination signal in metadata
+              if (parsedMetadata.agent_should_terminate) {
+                console.debug(
+                  '[useAgentStream] Agent termination signal detected from tool completion',
+                );
+                // Don't finalize immediately - wait for final finish status or thread_run_end
+                // But mark that we expect termination soon
+              }
               if (toolCall?.tool_index === parsedContent.tool_index) {
                 setToolCall(null);
               }
               break;
             case 'finish':
-              // Optional: Handle finish reasons like 'xml_tool_limit_reached'
-              // Don't finalize here, wait for thread_run_end or completion message
+              // Handle finish reasons
+              if (parsedContent.finish_reason === 'agent_terminated') {
+                console.debug(
+                  '[useAgentStream] Agent terminated finish reason received',
+                );
+                // Don't finalize here, wait for thread_run_end or completion message
+              } else if (parsedContent.finish_reason === 'xml_tool_limit_reached') {
+                console.debug(
+                  '[useAgentStream] XML tool limit reached finish reason received',
+                );
+                // Don't finalize here, wait for thread_run_end or completion message
+              }
+              // Other finish reasons (stop, length) don't need special handling
               break;
             case 'error':
               setError(parsedContent.message || 'Agent run failed');
               finalizeStream('error', currentRunIdRef.current);
               break;
-            // Ignore thread_run_start, thread_run_end, assistant_response_start etc. for now
+            // Ignore thread_run_start, thread_run_end, llm_response_start etc. for now
+            // These are informational and don't affect UI state
             default:
               // console.debug('[useAgentStream] Received unhandled status type:', parsedContent.status_type);
               break;
           }
+          break;
+        case 'llm_response_start':
+          // Track LLM response start - informational only, no UI changes needed
+          console.debug(
+            `[useAgentStream] LLM response started: ${parsedContent.llm_response_id} (call #${parsedContent.auto_continue_count || 0})`,
+          );
           break;
         case 'llm_response_end':
           // Extract context usage from llm_response_end
@@ -465,6 +551,12 @@ export function useAgentStream(
             setContextUsage(threadIdRef.current, {
               current_tokens: parsedContent.usage.total_tokens
             });
+          }
+          // Log if usage was estimated (helpful for debugging billing issues)
+          if (parsedContent.usage?.estimated) {
+            console.warn(
+              `[useAgentStream] LLM response ended with estimated usage (stream may have stopped early)`,
+            );
           }
           break;
         case 'user':

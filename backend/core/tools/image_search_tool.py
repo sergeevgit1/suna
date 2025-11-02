@@ -1,6 +1,6 @@
 import httpx
 from dotenv import load_dotenv
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.utils.config import config
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
@@ -8,6 +8,10 @@ import json
 import logging
 from typing import Union, List
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Image Search",
     description="Find images on the internet for any topic or subject",

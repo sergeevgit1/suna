@@ -93,6 +93,25 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
 
     const rawToolName = extractToolNameFromStream(content);
     const toolName = getUserFriendlyToolName(rawToolName || '');
+    
+    // DEBUG: Log streaming tool call content (safely)
+    try {
+        console.log('[SHOW-TOOL-STREAM] Streaming tool call detected:', {
+            rawToolName,
+            toolName,
+            contentLength: content.length,
+            hasInvokeTag: content.includes('<invoke'),
+            hasFlowParameter: /<parameter\s+name=["']flow["']>/i.test(content),
+        });
+        
+        // Try to extract flow parameter from streaming content
+        const flowMatch = content.match(/<parameter\s+name=["']flow["']>([^<]+)<\/parameter>/i);
+        if (flowMatch) {
+            console.log('[SHOW-TOOL-STREAM] Flow parameter found:', flowMatch[1]);
+        }
+    } catch (e) {
+        // Silently skip if error
+    }
     const isEditFile = toolName === 'AI File Edit';
     const isCreateFile = toolName === 'Creating File';
     const isFullFileRewrite = toolName === 'Rewriting File';
@@ -101,10 +120,11 @@ export const ShowToolStream: React.FC<ShowToolStreamProps> = ({
     const cleanXMLContent = (rawContent: string): { html: string; plainText: string } => {
         if (!rawContent || typeof rawContent !== 'string') return { html: '', plainText: '' };
 
-        // Remove only function call related XML tags: function_calls, invoke, parameter
+        // Clean up XML tags for display (defensive cleanup - function_calls tags should not exist in new format)
+        // Remove invoke/parameter tags, and any legacy function_calls tags if present
         const cleaned = rawContent
-            .replace(/<function_calls[^>]*>/gi, '')
-            .replace(/<\/function_calls>/gi, '')
+            .replace(/<function_calls[^>]*>/gi, '')  // Legacy cleanup only
+            .replace(/<\/function_calls>/gi, '')    // Legacy cleanup only
             .replace(/<invoke[^>]*>/gi, '')
             .replace(/<\/invoke>/gi, '');
 

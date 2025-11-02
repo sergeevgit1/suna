@@ -74,8 +74,9 @@ export function CompleteToolView({
         const contentStr = normalizeContentToString(assistantContent);
         if (!contentStr) return;
 
+        // Clean up content (defensive cleanup - function_calls tags should not exist in new format)
         let cleanContent = contentStr
-          .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, '')
+          .replace(/<function_calls>[\s\S]*?<\/function_calls>/g, '')  // Legacy cleanup only
           .replace(/<invoke name="complete"[\s\S]*?<\/invoke>/g, '')
           .trim();
 

@@ -1,8 +1,8 @@
 """
 XML Tool Call Parser Module
 
-This module provides a reliable XML tool call parsing system that supports
-the XML format with structured function_calls blocks.
+This module provides a reliable XML tool call parsing system that parses
+<invoke> tags directly, without requiring function call formats.
 """
 
 import re
@@ -26,22 +26,26 @@ class XMLToolCall:
 
 class XMLToolParser:
     """
-    Parser for XML tool calls format:
+    Parser for XML invoke tags format:
     
-    <function_calls>
     <invoke name="function_name">
     <parameter name="param_name">param_value</parameter>
     ...
     </invoke>
-    </function_calls>
+    
+    The parser looks for <invoke> tags directly. It optionally supports
+    <function_calls> wrappers for backwards compatibility, but does NOT
+    parse any other function call formats.
     """
     
     # Regex patterns for extracting XML blocks
+    # Support optional function_calls wrapper for backwards compatibility
     FUNCTION_CALLS_PATTERN = re.compile(
         r'<function_calls>(.*?)</function_calls>',
         re.DOTALL | re.IGNORECASE
     )
     
+    # Pattern to match invoke tags directly
     INVOKE_PATTERN = re.compile(
         r'<invoke\s+name=["\']([^"\']+)["\']>(.*?)</invoke>',
         re.DOTALL | re.IGNORECASE
@@ -58,24 +62,70 @@ class XMLToolParser:
     
     def parse_content(self, content: str) -> List[XMLToolCall]:
         """
-        Parse XML tool calls from content.
+        Parse XML invoke tags from content.
+        
+        This method only parses <invoke> tags. It does NOT parse any other
+        function call formats (e.g., function_name() or similar).
+        
+        The parser looks for <invoke> tags directly in the content first,
+        and also optionally checks inside <function_calls> wrappers for
+        backwards compatibility.
         
         Args:
-            content: The text content potentially containing XML tool calls
+            content: The text content potentially containing XML invoke tags
             
         Returns:
             List of parsed XMLToolCall objects
         """
         tool_calls = []
+        processed_xml = set()  # Track processed XML strings to avoid duplicates
         
-        # Find function_calls blocks
-        function_calls_matches = self.FUNCTION_CALLS_PATTERN.findall(content)
+        # First, find invoke tags directly in the content (primary method)
+        invoke_matches = self.INVOKE_PATTERN.finditer(content)
         
-        for fc_content in function_calls_matches:
-            # Find all invoke blocks within this function_calls block
-            invoke_matches = self.INVOKE_PATTERN.findall(fc_content)
+        for match in invoke_matches:
+            function_name = match.group(1)
+            invoke_content = match.group(2)
+            raw_xml = match.group(0)
             
-            for function_name, invoke_content in invoke_matches:
+            # Skip if we've already processed this exact XML
+            if raw_xml in processed_xml:
+                continue
+            
+            processed_xml.add(raw_xml)
+            
+            try:
+                tool_call = self._parse_invoke_block(
+                    function_name, 
+                    invoke_content,
+                    content
+                )
+                if tool_call:
+                    tool_calls.append(tool_call)
+            except Exception as e:
+                logger.error(f"Error parsing invoke block for {function_name}: {e}")
+        
+        # Also check inside function_calls blocks for backwards compatibility
+        # Only process invoke tags that weren't already processed
+        function_calls_matches = self.FUNCTION_CALLS_PATTERN.finditer(content)
+        
+        for fc_match in function_calls_matches:
+            fc_content = fc_match.group(1)
+            
+            # Find invoke blocks within this function_calls block
+            invoke_matches = self.INVOKE_PATTERN.finditer(fc_content)
+            
+            for match in invoke_matches:
+                function_name = match.group(1)
+                invoke_content = match.group(2)
+                raw_xml = match.group(0)
+                
+                # Skip if we've already processed this exact XML
+                if raw_xml in processed_xml:
+                    continue
+                
+                processed_xml.add(raw_xml)
+                
                 try:
                     tool_call = self._parse_invoke_block(
                         function_name, 
@@ -167,16 +217,16 @@ class XMLToolParser:
       
     def format_tool_call(self, function_name: str, parameters: Dict[str, Any]) -> str:
         """
-        Format a tool call in the XML format.
+        Format a tool call as an invoke tag.
         
         Args:
             function_name: Name of the function to call
             parameters: Dictionary of parameters
             
         Returns:
-            Formatted XML string
+            Formatted XML string with invoke tag
         """
-        lines = ['<function_calls>', '<invoke name="{}">'.format(function_name)]
+        lines = ['<invoke name="{}">'.format(function_name)]
         
         for param_name, param_value in parameters.items():
             # Convert value to string representation
@@ -191,7 +241,7 @@ class XMLToolParser:
                 param_name, value_str
             ))
         
-        lines.extend(['</invoke>', '</function_calls>'])
+        lines.append('</invoke>')
         return '\n'.join(lines)
     
     def validate_tool_call(self, tool_call: XMLToolCall, expected_params: Optional[Dict[str, type]] = None) -> Tuple[bool, Optional[str]]:
@@ -223,10 +273,12 @@ class XMLToolParser:
 # Convenience function for quick parsing
 def parse_xml_tool_calls(content: str) -> List[XMLToolCall]:
     """
-    Parse XML tool calls from content.
+    Parse XML invoke tags from content.
+    
+    This function only parses <invoke> tags, not function calls.
     
     Args:
-        content: The text content potentially containing XML tool calls
+        content: The text content potentially containing XML invoke tags
         
     Returns:
         List of parsed XMLToolCall objects

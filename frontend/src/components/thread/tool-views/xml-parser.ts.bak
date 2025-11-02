@@ -118,21 +118,25 @@ export function parseXmlToolCalls(content: string): ParsedToolCall[] {
     
     // DEBUG: Log parsed tool calls with all parameters including flow (safely)
     try {
-      const paramCounts = Object.entries(parameters).map((entry) => {
-        const k = entry[0];
-        const v = entry[1];
-        return {
-          key: k,
-          type: typeof v,
-          length: typeof v === 'string' ? v.length : 'N/A'
-        };
-      });
+      // Safely serialize parameters - limit string lengths to prevent URL parsing errors
+      const safeParams = Object.entries(parameters).reduce((acc, [k, v]) => {
+        if (typeof v === 'string') {
+          acc[k] = v.length > 100 ? v.substring(0, 100) + '...' : v;
+        } else {
+          acc[k] = v;
+        }
+        return acc;
+      }, {} as Record<string, any});
       
       console.log('[XML-PARSER] Parsed tool call:', {
         functionName,
         functionNameRaw,
         allParameterKeys: Object.keys(parameters),
-        parameterCounts: paramCounts,
+        parameterCounts: Object.entries(parameters).map(([k, v]) => ({ 
+          key: k, 
+          type: typeof v,
+          length: typeof v === 'string' ? v.length : 'N/A'
+        })),
         hasFlowParameter: 'flow' in parameters,
         flowValue: parameters.flow,
         rawXmlLength: rawXml.length,

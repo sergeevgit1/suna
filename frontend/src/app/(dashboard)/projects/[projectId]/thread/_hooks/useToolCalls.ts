@@ -307,12 +307,58 @@ export function useToolCalls(
       if (!toolCall) return;
 
       // Get the raw tool name and ensure it uses hyphens
-      const rawToolName = toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
+      // Backend sends function_name in status messages, fallback to name/xml_tag_name
+      const rawToolName = toolCall.function_name || toolCall.name || toolCall.xml_tag_name || 'Unknown Tool';
       const toolName = rawToolName.replace(/_/g, '-').toLowerCase();
+
+      // DEBUG: Log streaming tool call (safely)
+      try {
+        // Safely serialize arguments - don't log full objects that might contain URLs
+        let safeArgs: any = 'N/A';
+        if (toolCall.arguments) {
+          if (typeof toolCall.arguments === 'string') {
+            safeArgs = toolCall.arguments.length > 100 ? toolCall.arguments.substring(0, 100) + '...' : toolCall.arguments;
+          } else if (typeof toolCall.arguments === 'object') {
+            safeArgs = Object.keys(toolCall.arguments);
+          }
+        }
+        
+        console.log('[USE-TOOL-CALLS] Streaming tool call received:', {
+          rawToolName,
+          toolName,
+          function_name: toolCall.function_name,
+          xml_tag_name: toolCall.xml_tag_name,
+          argumentsType: typeof toolCall.arguments,
+          argumentsKeys: typeof toolCall.arguments === 'object' && toolCall.arguments ? Object.keys(toolCall.arguments) : 'N/A',
+          hasFlow: toolCall.arguments && typeof toolCall.arguments === 'object' && 'flow' in toolCall.arguments,
+          flowValue: toolCall.arguments && typeof toolCall.arguments === 'object' ? toolCall.arguments.flow : undefined,
+        });
+      } catch (e) {
+        console.log('[USE-TOOL-CALLS] Streaming tool call received (logging skipped):', toolName);
+      }
 
       if (userClosedPanelRef.current) return;
 
-      const toolArguments = toolCall.arguments || '';
+      // Handle arguments as either string or dict (backend sends dict from xml_tool_call.parameters)
+      let toolArguments: string = '';
+      if (typeof toolCall.arguments === 'string') {
+        toolArguments = toolCall.arguments;
+        
+        // DEBUG: Try to extract flow from string arguments
+        const flowMatch = toolArguments.match(/"flow"\s*:\s*"([^"]+)"/i);
+        if (flowMatch) {
+          console.log('[USE-TOOL-CALLS] Flow parameter found in string arguments:', flowMatch[1]);
+        }
+      } else if (toolCall.arguments && typeof toolCall.arguments === 'object') {
+        // Convert dict to string representation for display
+        toolArguments = JSON.stringify(toolCall.arguments);
+        
+        // DEBUG: Log if flow is present
+        if ('flow' in toolCall.arguments) {
+          console.log('[USE-TOOL-CALLS] Flow parameter in object arguments:', toolCall.arguments.flow);
+        }
+      }
+      
       let formattedContent = toolArguments;
       if (
         toolName.includes('command') &&

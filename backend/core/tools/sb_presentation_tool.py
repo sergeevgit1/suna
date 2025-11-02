@@ -1,4 +1,4 @@
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from typing import List, Dict, Optional, Union
@@ -9,6 +9,10 @@ import re
 import asyncio
 import httpx
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Presentations",
     description="Create and manage stunning presentation slides",

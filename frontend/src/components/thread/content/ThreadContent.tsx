@@ -60,31 +60,33 @@ function preprocessTextOnlyTools(content: string): string {
     // For ask/complete tools, we need to preserve them if they have attachments
     // Only strip them if they don't have attachments parameter
 
-    // Handle new function calls format - only strip if no attachments
-    content = content.replace(/<function_calls>\s*<invoke name="ask">\s*<parameter name="text">([\s\S]*?)<\/parameter>\s*<\/invoke>\s*<\/function_calls>/gi, (match) => {
-        if (match.includes('<parameter name="attachments"')) return match;
-        return match.replace(/<function_calls>\s*<invoke name="ask">\s*<parameter name="text">([\s\S]*?)<\/parameter>\s*<\/invoke>\s*<\/function_calls>/gi, '$1');
+    // Handle new invoke tag format - only strip if no attachments
+    // Direct invoke tags (primary format)
+    content = content.replace(/<invoke\s+name=["']ask["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>/gi, (match) => {
+        if (match.includes('<parameter name="attachments"') || match.includes("<parameter name='attachments'")) return match;
+        return match.replace(/<invoke\s+name=["']ask["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>/gi, '$1');
     });
 
-    content = content.replace(/<function_calls>\s*<invoke name="complete">\s*<parameter name="text">([\s\S]*?)<\/parameter>\s*<\/invoke>\s*<\/function_calls>/gi, (match) => {
-        if (match.includes('<parameter name="attachments"')) return match;
-        return match.replace(/<function_calls>\s*<invoke name="complete">\s*<parameter name="text">([\s\S]*?)<\/parameter>\s*<\/invoke>\s*<\/function_calls>/gi, '$1');
+    content = content.replace(/<invoke\s+name=["']complete["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>/gi, (match) => {
+        if (match.includes('<parameter name="attachments"') || match.includes("<parameter name='attachments'")) return match;
+        return match.replace(/<invoke\s+name=["']complete["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>/gi, '$1');
     });
 
-    content = content.replace(/<function_calls>\s*<invoke name="present_presentation">[\s\S]*?<parameter name="text">([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>\s*<\/function_calls>/gi, '$1');
+    content = content.replace(/<invoke\s+name=["']present_presentation["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)<\/parameter>[\s\S]*?<\/invoke>/gi, '$1');
 
     // Handle streaming/partial XML for message tools - only strip if no attachments visible yet
-    content = content.replace(/<function_calls>\s*<invoke name="ask">\s*<parameter name="text">([\s\S]*?)$/gi, (match) => {
-        if (match.includes('<parameter name="attachments"')) return match;
-        return match.replace(/<function_calls>\s*<invoke name="ask">\s*<parameter name="text">([\s\S]*?)$/gi, '$1');
+    // Direct invoke tags
+    content = content.replace(/<invoke\s+name=["']ask["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)$/gi, (match) => {
+        if (match.includes('<parameter name="attachments"') || match.includes("<parameter name='attachments'")) return match;
+        return match.replace(/<invoke\s+name=["']ask["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)$/gi, '$1');
     });
 
-    content = content.replace(/<function_calls>\s*<invoke name="complete">\s*<parameter name="text">([\s\S]*?)$/gi, (match) => {
-        if (match.includes('<parameter name="attachments"')) return match;
-        return match.replace(/<function_calls>\s*<invoke name="complete">\s*<parameter name="text">([\s\S]*?)$/gi, '$1');
+    content = content.replace(/<invoke\s+name=["']complete["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)$/gi, (match) => {
+        if (match.includes('<parameter name="attachments"') || match.includes("<parameter name='attachments'")) return match;
+        return match.replace(/<invoke\s+name=["']complete["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)$/gi, '$1');
     });
 
-    content = content.replace(/<function_calls>\s*<invoke name="present_presentation">[\s\S]*?<parameter name="text">([\s\S]*?)$/gi, '$1');
+    content = content.replace(/<invoke\s+name=["']present_presentation["'][^>]*>[\s\S]*?<parameter\s+name=["']text["']>([\s\S]*?)$/gi, '$1');
 
     // Also handle old format - only strip if no attachments attribute
     content = content.replace(/<ask[^>]*>([\s\S]*?)<\/ask>/gi, (match) => {
@@ -126,124 +128,196 @@ export function renderMarkdownContent(
         const contentParts: React.ReactNode[] = [];
         let lastIndex = 0;
 
-        // Find all function_calls blocks
-        const functionCallsRegex = /<function_calls>([\s\S]*?)<\/function_calls>/gi;
-        let match: RegExpExecArray | null = null;
-
-        while ((match = functionCallsRegex.exec(content)) !== null) {
-            // Add text before the function_calls block
-            if (match.index > lastIndex) {
-                const textBeforeBlock = content.substring(lastIndex, match.index);
-                if (textBeforeBlock.trim()) {
-                    contentParts.push(
-                        <ComposioUrlDetector key={`md-${lastIndex}`} content={textBeforeBlock} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
-                    );
+        // Parse all tool calls from content (direct invoke tags only)
+        const allToolCalls = parseXmlToolCalls(content);
+        
+        // DEBUG: Log parsed tool calls in rendering (safely)
+        if (allToolCalls.length > 0) {
+            try {
+                console.log('[THREAD-CONTENT] Rendering tool calls:', {
+                    count: allToolCalls.length,
+                    toolCalls: allToolCalls.map(tc => {
+                        // Safely serialize - limit string values
+                        const safeParams = Object.entries(tc.parameters).reduce((acc, [k, v]) => {
+                            if (typeof v === 'string') {
+                                acc[k] = v.length > 50 ? v.substring(0, 50) + '...' : v;
+                            } else {
+                                acc[k] = v;
+                            }
+                            return acc;
+                        }, {} as Record<string, any>);
+                        
+                        return {
+                            name: tc.functionName,
+                            paramKeys: Object.keys(tc.parameters),
+                            paramCount: Object.keys(tc.parameters).length,
+                            hasFlow: 'flow' in tc.parameters,
+                            flowValue: tc.parameters.flow,
+                        };
+                    }),
+                    rawContentLength: content.length,
+                });
+            } catch (e) {
+                console.log('[THREAD-CONTENT] Rendering', allToolCalls.length, 'tool calls (logging skipped)');
+            }
+        }
+        
+        if (allToolCalls.length > 0) {
+            // Find all invoke tags to get their positions
+            const invokeRegex = /<invoke\s+name=["'][^"']+["']>[\s\S]*?<\/invoke>/gi;
+            
+            // Find all matches
+            const allMatches: Array<{index: number; length: number; content: string}> = [];
+            let match: RegExpExecArray | null = null;
+            
+            // Find direct invoke tags
+            while ((match = invokeRegex.exec(content)) !== null) {
+                allMatches.push({
+                    index: match.index,
+                    length: match[0].length,
+                    content: match[0]
+                });
+            }
+            
+            // Sort matches by index
+            allMatches.sort((a, b) => a.index - b.index);
+            
+            let toolCallIndex = 0;
+            for (const matchInfo of allMatches) {
+                // Add text before this tool call block
+                if (matchInfo.index > lastIndex) {
+                    const textBeforeBlock = content.substring(lastIndex, matchInfo.index);
+                    if (textBeforeBlock.trim()) {
+                        contentParts.push(
+                            <ComposioUrlDetector key={`md-${lastIndex}`} content={textBeforeBlock} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
+                        );
+                    }
                 }
+
+                // Parse the tool calls in this block
+                const toolCalls = parseXmlToolCalls(matchInfo.content);
+
+                toolCalls.forEach((toolCall, index) => {
+                    const toolName = toolCall.functionName.replace(/_/g, '-');
+                    
+                    // DEBUG: Log each tool being rendered (safely)
+                    try {
+                        const safeParams = Object.entries(toolCall.parameters).reduce((acc, [k, v]) => {
+                            if (typeof v === 'string') {
+                                acc[k] = v.length > 50 ? v.substring(0, 50) + '...' : v;
+                            } else {
+                                acc[k] = v;
+                            }
+                            return acc;
+                        }, {} as Record<string, any>);
+                        
+                        console.log(`[THREAD-CONTENT] Rendering tool ${index + 1}/${toolCalls.length}:`, {
+                            toolName,
+                            paramKeys: Object.keys(toolCall.parameters),
+                            flow: toolCall.parameters.flow,
+                        });
+                    } catch (e) {
+                        // Silently skip if error
+                    }
+
+                    if (toolName === 'ask') {
+                        // Handle ask tool specially - extract text and attachments
+                        const askText = toolCall.parameters.text || '';
+                        const attachments = toolCall.parameters.attachments || [];
+
+                        // Convert single attachment to array for consistent handling
+                        const attachmentArray = Array.isArray(attachments) ? attachments :
+                            (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
+
+                        // Render ask tool content with attachment UI
+                        contentParts.push(
+                            <div key={`ask-${matchInfo.index}-${index}`} className="space-y-3">
+                                <ComposioUrlDetector content={askText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
+                                {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
+                            </div>
+                        );
+
+                        // Also render standalone attachments outside the message
+                        const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
+                        if (standaloneAttachments) {
+                            contentParts.push(
+                                <div key={`ask-func-attachments-${matchInfo.index}-${index}`}>
+                                    {standaloneAttachments}
+                                </div>
+                            );
+                        }
+                    } else if (toolName === 'complete') {
+                        // Handle complete tool specially - extract text and attachments
+                        const completeText = toolCall.parameters.text || '';
+                        const attachments = toolCall.parameters.attachments || '';
+
+                        // Convert single attachment to array for consistent handling
+                        const attachmentArray = Array.isArray(attachments) ? attachments :
+                            (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
+
+                        // Render complete tool content with attachment UI
+                        contentParts.push(
+                            <div key={`complete-${matchInfo.index}-${index}`} className="space-y-3">
+                                <ComposioUrlDetector content={completeText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
+                                {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
+                            </div>
+                        );
+
+                        // Also render standalone attachments outside the message
+                        const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
+                        if (standaloneAttachments) {
+                            contentParts.push(
+                                <div key={`complete-func-attachments-${matchInfo.index}-${index}`}>
+                                    {standaloneAttachments}
+                                </div>
+                            );
+                        }
+                    } else {
+                        const IconComponent = getToolIcon(toolName);
+
+                        // Extract primary parameter for display
+                        let paramDisplay = '';
+                        if (toolCall.parameters.file_path) {
+                            paramDisplay = toolCall.parameters.file_path;
+                        } else if (toolCall.parameters.command) {
+                            paramDisplay = toolCall.parameters.command;
+                        } else if (toolCall.parameters.query) {
+                            paramDisplay = toolCall.parameters.query;
+                        } else if (toolCall.parameters.url) {
+                            paramDisplay = toolCall.parameters.url;
+                        }
+
+                        contentParts.push(
+                            <div
+                                key={`tool-${matchInfo.index}-${index}`}
+                                className="my-1"
+                            >
+                                <button
+                                    onClick={() => handleToolClick(messageId, toolName)}
+                                    className="inline-flex items-center gap-1.5 py-1 px-1 pr-1.5 text-xs bg-card border rounded-lg transition-colors cursor-pointer hover:bg-card/80"
+                                >
+                                    <div className='border bg-gradient-to-br from-card to-background flex items-center justify-center p-0.5 rounded-sm border-border'>
+                                        <IconComponent className="h-3.5 w-3.5 text-foreground flex-shrink-0" />
+                                    </div>
+                                    <span className="text-xs text-foreground">{getUserFriendlyToolName(toolName)}</span>
+                                    {paramDisplay && <span className="ml-1 text-foreground/60 truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
+                                </button>
+                            </div>
+                        );
+                    }
+                });
+
+                lastIndex = matchInfo.index + matchInfo.length;
             }
 
-            // Parse the tool calls in this block
-            const toolCalls = parseXmlToolCalls(match[0]);
-
-            toolCalls.forEach((toolCall, index) => {
-                const toolName = toolCall.functionName.replace(/_/g, '-');
-
-                if (toolName === 'ask') {
-                    // Handle ask tool specially - extract text and attachments
-                    const askText = toolCall.parameters.text || '';
-                    const attachments = toolCall.parameters.attachments || [];
-
-                    // Convert single attachment to array for consistent handling
-                    const attachmentArray = Array.isArray(attachments) ? attachments :
-                        (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
-
-                    // Render ask tool content with attachment UI
+            // Add any remaining text after the last tool call block
+            if (lastIndex < content.length) {
+                const remainingText = content.substring(lastIndex);
+                if (remainingText.trim()) {
                     contentParts.push(
-                        <div key={`ask-${match.index}-${index}`} className="space-y-3">
-                            <ComposioUrlDetector content={askText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
-                            {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
-                        </div>
-                    );
-
-                    // Also render standalone attachments outside the message
-                    const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
-                    if (standaloneAttachments) {
-                        contentParts.push(
-                            <div key={`ask-func-attachments-${match.index}-${index}`}>
-                                {standaloneAttachments}
-                            </div>
-                        );
-                    }
-                } else if (toolName === 'complete') {
-                    // Handle complete tool specially - extract text and attachments
-                    const completeText = toolCall.parameters.text || '';
-                    const attachments = toolCall.parameters.attachments || '';
-
-                    // Convert single attachment to array for consistent handling
-                    const attachmentArray = Array.isArray(attachments) ? attachments :
-                        (typeof attachments === 'string' ? attachments.split(',').map(a => a.trim()) : []);
-
-                    // Render complete tool content with attachment UI
-                    contentParts.push(
-                        <div key={`complete-${match.index}-${index}`} className="space-y-3">
-                            <ComposioUrlDetector content={completeText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words [&>:first-child]:mt-0 prose-headings:mt-3" />
-                            {renderAttachments(attachmentArray, fileViewerHandler, sandboxId, project)}
-                        </div>
-                    );
-
-                    // Also render standalone attachments outside the message
-                    const standaloneAttachments = renderStandaloneAttachments(attachmentArray, fileViewerHandler, sandboxId, project);
-                    if (standaloneAttachments) {
-                        contentParts.push(
-                            <div key={`complete-func-attachments-${match.index}-${index}`}>
-                                {standaloneAttachments}
-                            </div>
-                        );
-                    }
-                } else {
-                    const IconComponent = getToolIcon(toolName);
-
-                    // Extract primary parameter for display
-                    let paramDisplay = '';
-                    if (toolCall.parameters.file_path) {
-                        paramDisplay = toolCall.parameters.file_path;
-                    } else if (toolCall.parameters.command) {
-                        paramDisplay = toolCall.parameters.command;
-                    } else if (toolCall.parameters.query) {
-                        paramDisplay = toolCall.parameters.query;
-                    } else if (toolCall.parameters.url) {
-                        paramDisplay = toolCall.parameters.url;
-                    }
-
-                    contentParts.push(
-                        <div
-                            key={`tool-${match.index}-${index}`}
-                            className="my-1"
-                        >
-                            <button
-                                onClick={() => handleToolClick(messageId, toolName)}
-                                className="inline-flex items-center gap-1.5 py-1 px-1 pr-1.5 text-xs bg-card border rounded-lg transition-colors cursor-pointer hover:bg-card/80"
-                            >
-                                <div className='border bg-gradient-to-br from-card to-background flex items-center justify-center p-0.5 rounded-sm border-border'>
-                                    <IconComponent className="h-3.5 w-3.5 text-foreground flex-shrink-0" />
-                                </div>
-                                <span className="text-xs text-foreground">{getUserFriendlyToolName(toolName)}</span>
-                                {paramDisplay && <span className="ml-1 text-foreground/60 truncate max-w-[200px]" title={paramDisplay}>{paramDisplay}</span>}
-                            </button>
-                        </div>
+                        <ComposioUrlDetector key={`md-${lastIndex}`} content={remainingText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
                     );
                 }
-            });
-
-            lastIndex = match.index + match[0].length;
-        }
-
-        // Add any remaining text after the last function_calls block
-        if (lastIndex < content.length) {
-            const remainingText = content.substring(lastIndex);
-            if (remainingText.trim()) {
-                contentParts.push(
-                    <ComposioUrlDetector key={`md-${lastIndex}`} content={remainingText} className="text-sm prose prose-sm dark:prose-invert chat-markdown max-w-none break-words" />
-                );
             }
         }
 
@@ -973,13 +1047,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;
                                                                         if (textToRender) {
-                                                                            // First check for new format
-                                                                            const functionCallsIndex = textToRender.indexOf('<function_calls>');
-                                                                            if (functionCallsIndex !== -1) {
-                                                                                detectedTag = 'function_calls';
-                                                                                tagStartIndex = functionCallsIndex;
+                                                                            // Check for invoke tags (new format)
+                                                                            const invokeIndex = textToRender.indexOf('<invoke');
+                                                                            if (invokeIndex !== -1) {
+                                                                                detectedTag = 'invoke';
+                                                                                tagStartIndex = invokeIndex;
                                                                             } else {
-                                                                                // Check for partial XML tags at the end (e.g., "<function", "<antml", "<", etc.)
+                                                                                // Check for partial XML tags at the end (e.g., "<invoke", "<", etc.)
                                                                                 // This prevents showing incomplete XML during streaming
                                                                                 const partialXmlMatch = textToRender.match(/<[a-zA-Z_:][a-zA-Z0-9_:]*$|<$/);
                                                                                 if (partialXmlMatch) {
@@ -1051,13 +1125,13 @@ export const ThreadContent: React.FC<ThreadContentProps> = ({
                                                                         let detectedTag: string | null = null;
                                                                         let tagStartIndex = -1;
                                                                         if (textToRender) {
-                                                                            // First check for new format
-                                                                            const functionCallsIndex = textToRender.indexOf('<function_calls>');
-                                                                            if (functionCallsIndex !== -1) {
-                                                                                detectedTag = 'function_calls';
-                                                                                tagStartIndex = functionCallsIndex;
+                                                                            // Check for invoke tags (new format)
+                                                                            const invokeIndex = textToRender.indexOf('<invoke');
+                                                                            if (invokeIndex !== -1) {
+                                                                                detectedTag = 'invoke';
+                                                                                tagStartIndex = invokeIndex;
                                                                             } else {
-                                                                                // Check for partial XML tags at the end (e.g., "<function", "<antml", "<", etc.)
+                                                                                // Check for partial XML tags at the end (e.g., "<invoke", "<", etc.)
                                                                                 // This prevents showing incomplete XML during streaming
                                                                                 const partialXmlMatch = textToRender.match(/<[a-zA-Z_:][a-zA-Z0-9_:]*$|<$/);
                                                                                 if (partialXmlMatch) {

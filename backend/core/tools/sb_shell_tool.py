@@ -3,10 +3,14 @@ from typing import Optional, Dict, Any
 import time
 import asyncio
 from uuid import uuid4
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Terminal & Commands",
     description="Run commands, install packages, and execute scripts in your workspace",

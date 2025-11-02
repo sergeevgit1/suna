@@ -111,6 +111,9 @@ if enabled:
                 def __init__(self): 
                     self.id = "mock-trace-id"
                 
+                def span(self, *args, **kwargs):
+                    return MockSpan()
+                
                 def __getattr__(self, name):
                     # Return a no-op function for any method call
                     def no_op(*args, **kwargs):
@@ -154,6 +157,9 @@ else:
     class MockTrace:
         def __init__(self): 
             self.id = "mock-trace-id"
+        
+        def span(self, *args, **kwargs):
+            return MockSpan()
         
         def __getattr__(self, name):
             # Return a no-op function for any method call

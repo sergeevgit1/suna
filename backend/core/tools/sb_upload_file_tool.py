@@ -6,12 +6,16 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
 
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.utils.logger import logger
 from core.utils.config import config
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="File Upload",
     description="Upload files to cloud storage and share them with secure links",

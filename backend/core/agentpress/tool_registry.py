@@ -102,4 +102,3 @@ class ToolRegistry:
         ]
         # logger.debug(f"Retrieved {len(schemas)} OpenAPI schemas")
         return schemas
-

@@ -1161,7 +1161,7 @@ export const streamAgent = (
             return;
           }
 
-          // Check for error status messages
+          // Check for direct status messages (error, stopped, etc.)
           try {
             const jsonData = JSON.parse(rawData);
             if (jsonData.status === 'error') {
@@ -1170,7 +1170,22 @@ export const streamAgent = (
               // Pass the error message to the callback
               callbacks.onError(jsonData.message || 'Unknown error occurred');
               
-              // Don't close the stream for error status messages as they may continue
+              // Close the stream on error
+              cleanupEventSource(agentRunId, 'error status received');
+              callbacks.onClose();
+              return;
+            }
+            if (jsonData.status === 'stopped') {
+              console.info(`[STREAM] Stopped status received for ${agentRunId}:`, jsonData);
+              
+              // Pass the stop message to the callback if provided
+              if (jsonData.message) {
+                callbacks.onError(jsonData.message);
+              }
+              
+              // Close the stream on stop
+              cleanupEventSource(agentRunId, 'stopped status received');
+              callbacks.onClose();
               return;
             }
           } catch (jsonError) {

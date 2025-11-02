@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 from io import BytesIO
 from PIL import Image
 from urllib.parse import urlparse
-from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata
+from core.agentpress.tool import ToolResult, openapi_schema, tool_metadata, execution_flow
 from core.sandbox.tool_base import SandboxToolsBase
 from core.agentpress.thread_manager import ThreadManager
 from core.services.supabase import DBConnection
@@ -35,6 +35,10 @@ DEFAULT_MAX_HEIGHT = 1080
 DEFAULT_JPEG_QUALITY = 85
 DEFAULT_PNG_COMPRESS_LEVEL = 6
 
+@execution_flow(
+    default="CONTINUE",
+    allows_override=True
+)
 @tool_metadata(
     display_name="Image Vision",
     description="View and analyze images to understand their content",

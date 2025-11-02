@@ -365,4 +365,3 @@ async def get_agent_tools(
         for tool_name in enabled_tools:
             mcp_tools.append({"name": tool_name, "server": server, "enabled": True})
     return {"agentpress_tools": agentpress_tools, "mcp_tools": mcp_tools}
-
