@@ -136,6 +136,24 @@ async def log_requests_middleware(request: Request, call_next):
 allowed_origins = ["https://www.kortix.com", "https://kortix.com", "https://www.suna.so", "https://suna.so"]
 allow_origin_regex = None
 
+# Allow configuring additional origins via environment variables
+# CORS_ALLOWED_ORIGINS can be a comma-separated list
+env_allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS", "")
+if env_allowed_origins:
+    for origin in [o.strip() for o in env_allowed_origins.split(",")]:
+        if origin and origin not in allowed_origins:
+            allowed_origins.append(origin)
+
+# FRONTEND_ORIGIN can specify a single origin
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip()
+if frontend_origin and frontend_origin not in allowed_origins:
+    allowed_origins.append(frontend_origin)
+
+# ALLOW_ORIGIN_REGEX can override/add regex rule for origins
+origin_regex_env = os.getenv("ALLOW_ORIGIN_REGEX", "").strip()
+if origin_regex_env:
+    allow_origin_regex = origin_regex_env
+
 # Add staging-specific origins
 if config.ENV_MODE == EnvMode.LOCAL:
     allowed_origins.append("http://localhost:3000")
