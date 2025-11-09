@@ -1,3 +1,17 @@
+ДЛЯ ФРОНТЕНДА
+
+NEXT_PUBLIC_ENV_MODE="staging" #production, or staging
+NEXT_PUBLIC_SUPABASE_URL="https://ftnuwrhhkcvcsiqqebtm.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0bnV3cmhoa2N2Y3NpcXFlYnRtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1NzQ4MDMsImV4cCI6MjA3ODE1MDgwM30.yLj5pSgDHUbbD7jfEnURZh0kWBHb_zRoIWuWQoCXmC4"
+NEXT_PUBLIC_BACKEND_URL="http://localhost:8000/api"
+NEXT_PUBLIC_URL="http://localhost:3000"
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=""
+NEXT_PUBLIC_POSTHOG_KEY=""
+KORTIX_ADMIN_API_KEY=""
+EDGE_CONFIG="https://edge-config.vercel.com/REDACTED?token=REDACTED"
+
+ДЛЯ БЕКЕНДА
+
 ## Copy this file to .env and fill values.
 ## Required keys are marked REQUIRED. Others are optional.
 
