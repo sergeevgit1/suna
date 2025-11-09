@@ -63,7 +63,7 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository }}/suna-backend:${{ steps.get_tag_name.outputs.branch }}
+          tags: ghcr.io/suna-ai/suna-backend:${{ steps.get_tag_name.outputs.branch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -74,7 +74,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/${{ github.repository }}/suna-frontend:${{ steps.get_tag_name.outputs.branch }}
+          tags: ghcr.io/suna-ai/suna-frontend:${{ steps.get_tag_name.outputs.branch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
