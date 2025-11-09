@@ -1770,8 +1770,14 @@ class SetupWizard:
         if self.env_vars["setup_method"] == "docker":
             print_info("Starting Suna with Docker Compose...")
             try:
+                # Pull prebuilt images from GHCR, then start containers
                 subprocess.run(
-                    ["docker", "compose", "up", "-d", "--build"],
+                    ["docker", "compose", "pull"],
+                    check=True,
+                    shell=IS_WINDOWS,
+                )
+                subprocess.run(
+                    ["docker", "compose", "up", "-d"],
                     check=True,
                     shell=IS_WINDOWS,
                 )
@@ -1792,19 +1798,9 @@ class SetupWizard:
                     )
             except subprocess.SubprocessError as e:
                 print_error(f"Failed to start Suna with Docker Compose: {e}")
-                print_warning(
-                    "The Docker build might be failing due to environment variable issues during build time."
-                )
-                print_info(
-                    "WORKAROUND: Try starting without rebuilding:"
-                )
-                print_info(f"  {Colors.CYAN}docker compose up -d{Colors.ENDC} (without --build)")
-                print_info(
-                    "\nIf that doesn't work, you may need to:"
-                )
-                print_info(f"  1. {Colors.CYAN}cd frontend{Colors.ENDC}")
-                print_info(f"  2. {Colors.CYAN}npm run build{Colors.ENDC}")
-                print_info(f"  3. {Colors.CYAN}cd .. && docker compose up -d{Colors.ENDC}")
+                print_warning("If images aren't available, ensure GHCR publishing is configured.")
+                print_info("Manual start without build:")
+                print_info(f"  {Colors.CYAN}docker compose up -d{Colors.ENDC}")
                 # Don't exit, let the final instructions show
                 return
         else:

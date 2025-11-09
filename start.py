@@ -204,7 +204,9 @@ def main():
         else:
             subprocess.run(["docker", "compose", "up", "-d"], shell=IS_WINDOWS)
             print(f"\n{Colors.GREEN}✅ All Suna services started.{Colors.ENDC}")
-            print(f"{Colors.CYAN}🌐 Access Suna at: http://localhost:3000{Colors.ENDC}")
+            setup_method = get_setup_method() or "docker"
+            url = "http://localhost:8080" if setup_method == "docker" else "http://localhost:3000"
+            print(f"{Colors.CYAN}🌐 Access Suna at: {url}{Colors.ENDC}")
 
 
 if __name__ == "__main__":

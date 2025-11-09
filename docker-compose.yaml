@@ -42,9 +42,6 @@ services:
   backend:
     image: ghcr.io/suna-ai/suna-backend:latest
     platform: linux/amd64
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
@@ -63,9 +60,6 @@ services:
   worker:
     image: ghcr.io/suna-ai/suna-backend:latest
     platform: linux/amd64
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
     command: uv run dramatiq --skip-logging --processes 4 --threads 4 run_agent_background
     volumes:
       - ./backend/.env:/app/.env:ro
@@ -80,13 +74,22 @@ services:
 
   frontend:
     init: true
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ghcr.io/suna-ai/suna-frontend:latest
     ports:
       - "3000:3000"
     depends_on:
       - backend
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    depends_on:
+      - frontend
+      - backend
+    volumes:
+      - ./services/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
 
 volumes:
   redis_data:
