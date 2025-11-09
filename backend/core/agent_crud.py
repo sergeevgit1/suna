@@ -15,6 +15,7 @@ from .api_models import (
 from . import core_utils as utils
 from .core_utils import _get_version_service, merge_custom_mcps
 from .config_helper import build_unified_config
+from core.utils.account_utils import ensure_personal_account
 
 router = APIRouter(tags=["agents"])
 
@@ -539,6 +540,8 @@ async def create_agent(
 ):
     logger.debug(f"Creating new agent for user: {user_id}")
     client = await utils.db.client
+    # Самовосстановление личного аккаунта, если он отсутствует
+    await ensure_personal_account(client, user_id)
     
     from .core_utils import check_agent_count_limit
     limit_check = await check_agent_count_limit(client, user_id)

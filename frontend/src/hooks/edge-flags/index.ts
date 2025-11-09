@@ -13,7 +13,8 @@ export const useMaintenanceNoticeQuery = (options?) => {
   return useQuery<IMaintenanceNotice>({
     queryKey: maintenanceNoticeKeys.all,
     queryFn: async (): Promise<IMaintenanceNotice> => {
-      const response = await fetch('/api/edge-flags');
+      // Используем маршрут Next.js без префикса /api, чтобы не конфликтовать с бекенд-прокси
+      const response = await fetch('/edge-flags');
       const data = await response.json();
       return data;
     },

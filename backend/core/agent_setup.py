@@ -174,6 +174,9 @@ async def setup_agent_from_chat(
         raise HTTPException(status_code=400, detail="Description cannot be empty")
     
     client = await utils.db.client
+    # Самовосстановление личного аккаунта на случай отсутствия записи
+    from core.utils.account_utils import ensure_personal_account
+    await ensure_personal_account(client, user_id)
     
     # Check agent count limit
     from .core_utils import check_agent_count_limit
