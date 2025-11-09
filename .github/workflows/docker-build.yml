@@ -63,30 +63,9 @@ jobs:
           file: ./backend/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: ghcr.io/suna-ai/suna-backend:${{ steps.get_tag_name.outputs.branch }}
+          tags: ghcr.io/${{ github.repository }}/suna-backend:${{ steps.get_tag_name.outputs.branch }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          platforms: linux/amd64
-          tags: ghcr.io/suna-ai/suna-frontend:${{ steps.get_tag_name.outputs.branch }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            NEXT_PUBLIC_ENV_MODE=${{ vars.NEXT_PUBLIC_ENV_MODE }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-            NEXT_PUBLIC_BACKEND_URL=${{ vars.NEXT_PUBLIC_BACKEND_URL }}
-            NEXT_PUBLIC_URL=${{ vars.NEXT_PUBLIC_URL }}
-            NEXT_PUBLIC_GOOGLE_CLIENT_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
-            NEXT_PUBLIC_POSTHOG_KEY=${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
-            KORTIX_ADMIN_API_KEY=${{ secrets.KORTIX_ADMIN_API_KEY }}
-            EDGE_CONFIG=${{ vars.EDGE_CONFIG }}
 
       - name: Deploy to staging
         if: steps.get_tag_name.outputs.environment == 'staging'
