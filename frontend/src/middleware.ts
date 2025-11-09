@@ -91,6 +91,24 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // Bypass billing checks for admins and super_admins
+    // Admins should always be able to access protected routes without trial/subscription redirects
+    try {
+      const { data: roleRow } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+
+      const isAdminUser = roleRow?.role === 'admin' || roleRow?.role === 'super_admin';
+      if (isAdminUser) {
+        return supabaseResponse;
+      }
+    } catch (e) {
+      // If role check fails, fall through to billing checks
+      console.warn('Admin role check failed, proceeding with billing checks:', e);
+    }
+
     // Skip billing checks in local mode
     const isLocalMode = process.env.NEXT_PUBLIC_ENV_MODE?.toLowerCase() === 'local'
     if (isLocalMode) {
