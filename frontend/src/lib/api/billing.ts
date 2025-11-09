@@ -547,7 +547,8 @@ export const billingApi = {
   },
 
   async getAvailableModels() {
-    const response = await backendApi.get<AvailableModelsResponse>('/billing/available-models', {
+    // Используем backend-прокси к провайдеру: /llm/models
+    const response = await backendApi.get<AvailableModelsResponse>('/llm/models', {
       showErrors: false,
     });
     if (response.error && response.error.status !== 401) {

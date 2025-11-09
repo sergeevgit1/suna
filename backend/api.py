@@ -196,6 +196,7 @@ api_router.include_router(master_password_router)
 from core.mcp_module import api as mcp_api
 from core.credentials import api as credentials_api
 from core.templates import api as template_api
+from core.llm_models import router as llm_models_router
 
 api_router.include_router(mcp_api.router)
 api_router.include_router(credentials_api.router, prefix="/secure-mcp")
@@ -203,6 +204,7 @@ api_router.include_router(template_api.router, prefix="/templates")
 
 api_router.include_router(transcription_api.router)
 api_router.include_router(email_api.router)
+api_router.include_router(llm_models_router)
 
 from core.knowledge_base import api as knowledge_base_api
 api_router.include_router(knowledge_base_api.router)

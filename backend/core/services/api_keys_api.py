@@ -19,6 +19,7 @@ from core.services.api_keys import (
 )
 from core.utils.auth_utils import verify_and_get_user_id_from_jwt
 from core.utils.logger import logger
+from core.utils.account_utils import ensure_personal_account
 
 router = APIRouter(tags=["api-keys"])
 
@@ -36,6 +37,9 @@ async def get_account_id_from_user_id(user_id: str) -> UUID:
         from core.utils.db_helpers import get_db
         db = await get_db()
         client = await db.client
+
+        # Гарантируем, что у пользователя существует личный аккаунт
+        await ensure_personal_account(client, user_id)
 
         # Query the basejump.accounts table for the user's primary account
         result = (

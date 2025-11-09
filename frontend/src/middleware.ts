@@ -19,6 +19,7 @@ const PUBLIC_ROUTES = [
   '/checkout', // Public checkout wrapper for Apple compliance
   '/support', // Support page should be public
   '/suna', // Suna rebrand page should be public for SEO
+  '/edge-flags', // Public edge flags endpoint
 ];
 
 // Routes that require authentication but are related to billing/trials/setup
