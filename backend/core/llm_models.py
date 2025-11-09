@@ -52,22 +52,68 @@ async def list_openai_compatible_models(
         model_info = []
         for idx, m in enumerate(raw_models):
             mid = m.get("id") or m.get("name") or "unknown"
-            # Важно: префикс для роутера и конфигурации openai-compatible
+            # Префикс для роутера и конфигурации openai-compatible
             full_id = f"openai-compatible/{mid}"
 
-            display_name = m.get("name") or mid
-            context_window = m.get("context_window") or m.get("context_length") or 128000
+            metadata = m.get("metadata") or {}
+            display_name = metadata.get("name") or m.get("name") or mid
+
+            # Контекст/макс. токены
+            context_window = (
+                m.get("context_window")
+                or m.get("context_length")
+                or metadata.get("context_length")
+                or 128000
+            )
+            max_tokens = (
+                m.get("max_model_len")
+                or metadata.get("max_model_len")
+                or context_window
+            )
+
+            # Стоимость (если провайдер возвращает per million tokens)
+            input_cost = metadata.get("prompt_tokens_cost")
+            output_cost = metadata.get("generated_tokens_cost")
+
+            # Способности
+            capabilities = []
+            endpoints = metadata.get("endpoints") or []
+            # Chat/Completions по наличию эндпойнтов
+            for ep in endpoints:
+                path = (ep or {}).get("path") or ""
+                if "/chat/completions" in path and "chat" not in capabilities:
+                    capabilities.append("chat")
+                if "/completions" in path and "completions" not in capabilities:
+                    capabilities.append("completions")
+            # Доп. флаги
+            if m.get("function_calling"):
+                capabilities.append("function_calling")
+            if m.get("structure_output") or m.get("structured_output"):
+                capabilities.append("structured_output")
+
+            # Подписка/доступ
+            is_billable = bool(metadata.get("is_billable"))
+            requires_subscription = is_billable
+
+            # Простая эвристика выбора рекомендуемой: первая или бесплатная с function_calling
+            recommended = False
+            if idx == 0:
+                recommended = True
+            elif not is_billable and ("function_calling" in capabilities):
+                recommended = True
 
             model_info.append({
                 "id": full_id,
                 "display_name": display_name,
                 "short_name": mid,
-                "requires_subscription": False,
-                "input_cost_per_million_tokens": None,
-                "output_cost_per_million_tokens": None,
+                "requires_subscription": requires_subscription,
+                "is_available": True,
+                "input_cost_per_million_tokens": input_cost,
+                "output_cost_per_million_tokens": output_cost,
+                "max_tokens": max_tokens,
                 "context_window": context_window,
-                "capabilities": ["chat"],
-                "recommended": idx == 0,  # первую модель считаем рекомендуемой
+                "capabilities": capabilities or ["chat"],
+                "recommended": recommended,
                 "priority": 100 - idx,
             })
 
@@ -82,4 +128,3 @@ async def list_openai_compatible_models(
     except Exception as e:
         logger.error(f"Failed to list OpenAI-compatible models: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch models from provider")
-

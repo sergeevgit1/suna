@@ -103,6 +103,57 @@ export async function middleware(request: NextRequest) {
 
       const isAdminUser = roleRow?.role === 'admin' || roleRow?.role === 'super_admin';
       if (isAdminUser) {
+        // Auto-assign Ultra plan to admins
+        try {
+          // Ensure personal account exists with id = user.id
+          const { data: personalAccount } = await supabase
+            .schema('basejump')
+            .from('accounts')
+            .select('id, personal_account, primary_owner_user_id')
+            .eq('id', user.id)
+            .single();
+
+          if (!personalAccount) {
+            await supabase
+              .schema('basejump')
+              .from('accounts')
+              .insert({
+                id: user.id,
+                primary_owner_user_id: user.id,
+                personal_account: true,
+              });
+
+            await supabase
+              .schema('basejump')
+              .from('account_user')
+              .insert({
+                account_id: user.id,
+                user_id: user.id,
+                account_role: 'owner',
+              });
+          }
+
+          // Set Ultra tier in credit_accounts
+          const targetTier = 'tier_25_200';
+          const { data: creditAccount } = await supabase
+            .from('credit_accounts')
+            .select('tier')
+            .eq('account_id', user.id)
+            .single();
+
+          if (!creditAccount) {
+            await supabase
+              .from('credit_accounts')
+              .insert({ account_id: user.id, tier: targetTier });
+          } else if (creditAccount.tier !== targetTier) {
+            await supabase
+              .from('credit_accounts')
+              .update({ tier: targetTier })
+              .eq('account_id', user.id);
+          }
+        } catch (e) {
+          console.warn('Auto-assign Ultra plan for admin failed:', e);
+        }
         return supabaseResponse;
       }
     } catch (e) {
