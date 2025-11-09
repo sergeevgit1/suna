@@ -190,16 +190,5 @@ services:
     depends_on:
       - backend
 
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "8080:80"
-    depends_on:
-      - frontend
-      - backend
-    volumes:
-      - ./services/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    restart: unless-stopped
-
 volumes:
   redis_data:
