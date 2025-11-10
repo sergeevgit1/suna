@@ -3,7 +3,7 @@ Icon and color generation utilities for agents and projects.
 """
 import json
 import traceback
-from typing import Dict
+from typing import Dict, Optional
 from core.utils.logger import logger
 from core.services.llm import make_llm_api_call
 
@@ -117,7 +117,7 @@ RELEVANT_ICONS = [
 ]
 
 
-async def generate_icon_and_colors(name: str, description: str = "") -> Dict[str, str]:
+async def generate_icon_and_colors(name: str, description: str = "", model_name: Optional[str] = None) -> Dict[str, str]:
     """
     Generate appropriate icon and color scheme for an agent or project.
     
@@ -130,7 +130,10 @@ async def generate_icon_and_colors(name: str, description: str = "") -> Dict[str
     """
     logger.debug(f"Generating icon and colors for: {name}")
     try:
-        model_name = "openai/gpt-5-nano-2025-08-07"
+        if not model_name:
+            # Use default premium model from registry (Anthropic by our configuration)
+            from core.ai_models.registry import PREMIUM_MODEL_ID
+            model_name = PREMIUM_MODEL_ID
         
         frontend_colors = [
             "#000000", "#FFFFFF", "#6366F1", "#10B981", "#F59E0B", 
@@ -227,4 +230,3 @@ Example response:
             "icon_color": "#FFFFFF", 
             "icon_background": "#6366F1"
         }
-

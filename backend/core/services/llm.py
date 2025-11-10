@@ -69,14 +69,8 @@ def setup_api_keys() -> None:
             os.environ["OPENROUTER_API_BASE"] = config.OPENROUTER_API_BASE
             # logger.debug(f"Set OPENROUTER_API_BASE to {config.OPENROUTER_API_BASE}")
 
-    # Set up AWS Bedrock bearer token authentication
-    if hasattr(config, 'AWS_BEARER_TOKEN_BEDROCK'):
-        bedrock_token = config.AWS_BEARER_TOKEN_BEDROCK
-        if bedrock_token:
-            os.environ["AWS_BEARER_TOKEN_BEDROCK"] = bedrock_token
-            logger.debug("AWS Bedrock bearer token configured")
-        else:
-            logger.debug("AWS_BEARER_TOKEN_BEDROCK not configured - Bedrock models will not be available")
+    # AWS отключен: убираем любую автоматическую настройку AWS/Bedrock
+    pass
 
 def setup_provider_router(openai_compatible_api_key: str = None, openai_compatible_api_base: str = None):
     global provider_router
@@ -102,36 +96,12 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
         },
     ]
     
-    fallbacks = [
-        # MAP-tagged Haiku 4.5 (default) -> Sonnet 4 -> Sonnet 4.5
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh",
-            ]
-        },
-        # MAP-tagged Sonnet 4.5 -> Sonnet 4 -> Haiku 4.5
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/few7z4l830xh": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf",
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48",
-            ]
-        },
-        # MAP-tagged Sonnet 4 -> Haiku 4.5
-        {
-            "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/tyj1ks3nj9qf": [
-                "bedrock/converse/arn:aws:bedrock:us-west-2:935064898258:application-inference-profile/heol2zyy5v48",
-            ]
-        }
-    ]
-    
     provider_router = Router(
         model_list=model_list,
         retry_after=15,
-        fallbacks=fallbacks,
     )
     
-    logger.info(f"Configured LiteLLM Router with {len(fallbacks)} Bedrock-only fallback rules")
+    logger.info("Configured LiteLLM Router without AWS/Bedrock fallbacks")
 
 def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_key: Optional[str], api_base: Optional[str]) -> None:
     """Configure OpenAI-compatible provider setup."""
@@ -275,16 +245,11 @@ setup_provider_router()
 
 if __name__ == "__main__":
     from litellm import completion
-    import os
 
     setup_api_keys()
 
     response = completion(
-        model="bedrock/anthropic.claude-sonnet-4-20250115-v1:0",
-        messages=[{"role": "user", "content": "Hello! Testing 1M context window."}],
+        model="anthropic/claude-haiku-4-5",
+        messages=[{"role": "user", "content": "Hello! Testing Anthropic call."}],
         max_tokens=100,
-        extra_headers={
-            "anthropic-beta": "context-1m-2025-08-07"  # 👈 Enable 1M context
-        }
     )
-

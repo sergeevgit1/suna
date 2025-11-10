@@ -13,6 +13,7 @@ from core.versioning.version_service import get_version_service as _get_version_
 from core.utils.core_tools_helper import ensure_core_tools_enabled
 from core.config_helper import _get_default_agentpress_tools
 from core.ai_models import model_manager
+from core.ai_models.registry import PREMIUM_MODEL_ID
 
 from . import core_utils as utils
 from .api_models import AgentResponse
@@ -44,7 +45,8 @@ async def generate_agent_name_and_prompt(description: str) -> dict:
         Dict with keys: name, system_prompt
     """
     try:
-        model_name = "openai/gpt-5-nano-2025-08-07"
+        # Use default premium model (Anthropic) configured in registry
+        model_name = PREMIUM_MODEL_ID
         
         system_prompt = """You are an AI worker configuration expert. Generate a name and system prompt for an AI worker.
 
@@ -106,12 +108,11 @@ async def generate_agent_config_from_description(description: str) -> dict:
     logger.debug(f"Generating agent config from description: {description[:100]}...")
     
     try:
-        from core.utils.icon_generator import generate_icon_and_colors
         import asyncio
         
         # Run both LLM calls in parallel
         name_prompt_task = generate_agent_name_and_prompt(description)
-        icon_task = generate_icon_and_colors(name="", description=description)
+        icon_task = generate_icon_and_colors(name="", description=description, model_name=PREMIUM_MODEL_ID)
         
         # Wait for both to complete
         name_prompt_result, icon_result = await asyncio.gather(
