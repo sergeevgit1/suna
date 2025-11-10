@@ -61,6 +61,7 @@ import { AgentTriggersConfiguration } from './triggers/agent-triggers-configurat
 import { AgentAvatar } from '../thread/content/agent-avatar';
 import { AgentIconEditorDialog } from './config/agent-icon-editor-dialog';
 import { AgentVersionSwitcher } from './agent-version-switcher';
+import type { ModelProvider } from '@/lib/model-provider-icons';
 
 interface AgentConfigurationDialogProps {
   open: boolean;
@@ -126,6 +127,7 @@ export function AgentConfigurationDialog({
 
   const [originalFormData, setOriginalFormData] = useState(formData);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
 
   useEffect(() => {
     if (!agent) return;
@@ -370,7 +372,7 @@ export function AgentConfigurationDialog({
   }
 
   const tabItems = [
-    // { id: 'general', label: 'General', icon: Settings, disabled: false },
+    { id: 'general', label: 'General', icon: Settings, disabled: false },
     { id: 'instructions', label: 'Instructions', icon: Brain, disabled: false },
     { id: 'tools', label: 'Tools', icon: Wrench, disabled: false },
     { id: 'integrations', label: 'Integrations', icon: Server, disabled: false },
@@ -618,20 +620,34 @@ export function AgentConfigurationDialog({
                 </TabsList>
               </div>
               <div className="flex-1 overflow-auto">
-                {/* <TabsContent value="general" className="p-6 mt-0 flex flex-col h-full">
+                <TabsContent value="general" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 gap-6">
                     <div className="flex-shrink-0">
                       <Label className="text-base font-semibold mb-3 block">Model</Label>
+                      {/* Provider Filters */}
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {(['all','anthropic','openai','google','xai','moonshotai','bedrock','openrouter'] as const).map((prov) => (
+                          <Button
+                            key={prov}
+                            variant={selectedProvider === prov ? 'default' : 'outline'}
+                            size="sm"
+                            className="h-7"
+                            onClick={() => setSelectedProvider(prov as ModelProvider | 'all')}
+                          >
+                            {prov === 'all' ? 'All' : prov.charAt(0).toUpperCase() + prov.slice(1)}
+                          </Button>
+                        ))}
+                      </div>
                       <AgentModelSelector
                         value={formData.model}
                         onChange={handleModelChange}
                         disabled={isViewingOldVersion}
                         variant="default"
+                        providerFilter={selectedProvider}
                       />
                     </div>
-
                   </div>
-                </TabsContent> */}
+                </TabsContent>
 
                 <TabsContent value="instructions" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0">

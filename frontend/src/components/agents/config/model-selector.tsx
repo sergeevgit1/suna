@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Check, Search, AlertTriangle, Crown, Cpu, Plus, Edit, Trash, KeyRound } from 'lucide-react';
-import { ModelProviderIcon } from '@/lib/model-provider-icons';
+import { ModelProviderIcon, getModelProvider, type ModelProvider } from '@/lib/model-provider-icons';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -35,6 +35,7 @@ interface AgentModelSelectorProps {
   disabled?: boolean;
   variant?: 'default' | 'menu-item';
   className?: string;
+  providerFilter?: ModelProvider | 'all';
 }
 
 export function AgentModelSelector({
@@ -43,6 +44,7 @@ export function AgentModelSelector({
   disabled = false,
   variant = 'default',
   className,
+  providerFilter = 'all',
 }: AgentModelSelectorProps) {
   const { 
     allModels, 
@@ -134,11 +136,16 @@ export function AgentModelSelector({
   }, [selectedModel, enhancedModelOptions]);
 
   const filteredOptions = useMemo(() => {
-    return enhancedModelOptions.filter((opt) =>
+    const bySearch = enhancedModelOptions.filter((opt) =>
       opt.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
       opt.id.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [enhancedModelOptions, searchQuery]);
+
+    if (providerFilter && providerFilter !== 'all') {
+      return bySearch.filter((opt) => getModelProvider(opt.id) === providerFilter);
+    }
+    return bySearch;
+  }, [enhancedModelOptions, searchQuery, providerFilter]);
 
   const sortedModels = useMemo(() => {
     return [...filteredOptions].sort((a, b) => {

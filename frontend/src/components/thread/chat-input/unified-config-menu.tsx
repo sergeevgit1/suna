@@ -18,7 +18,7 @@ import { Cpu, Search, Check, ChevronDown, Plus, ExternalLink, Loader2, Plug, Bra
 import { useAgents } from '@/hooks/agents/use-agents';
 import { KortixLogo } from '@/components/sidebar/kortix-logo';
 import type { ModelOption } from '@/hooks/agents';
-import { ModelProviderIcon } from '@/lib/model-provider-icons';
+import { ModelProviderIcon, getModelProvider, type ModelProvider } from '@/lib/model-provider-icons';
 import { SpotlightCard } from '@/components/ui/spotlight-card';
 
 export type SubscriptionStatus = 'no_subscription' | 'active';
@@ -71,6 +71,7 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
     const [showNewAgentDialog, setShowNewAgentDialog] = useState(false);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' }>({ open: false, tab: 'instructions' });
+    const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
 
     // Debounce search query
     useEffect(() => {
@@ -348,10 +349,35 @@ const LoggedInMenu: React.FC<UnifiedConfigMenuProps> = memo(function LoggedInMen
                                 <DropdownMenuPortal>
                                     <DropdownMenuSubContent className="w-[320px] p-3 border-[1.5px] border-border rounded-2xl max-h-[500px] overflow-y-auto" sideOffset={8}>
                                         <div className="mb-3">
+                                            <span className="text-xs font-medium text-muted-foreground pl-1">Providers</span>
+                                        </div>
+                                        <div className="flex gap-2 px-1 pb-2 flex-wrap">
+                                            {[...new Set(modelOptions.map(m => getModelProvider(m.id) as ModelProvider))].map((provider) => (
+                                                <Button
+                                                    key={provider}
+                                                    variant={selectedProvider === provider ? 'default' : 'ghost'}
+                                                    size="sm"
+                                                    className="h-7 rounded-xl"
+                                                    onClick={() => setSelectedProvider(selectedProvider === provider ? 'all' : provider)}
+                                                >
+                                                    {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                                                </Button>
+                                            ))}
+                                            <Button
+                                                key="all"
+                                                variant={selectedProvider === 'all' ? 'default' : 'ghost'}
+                                                size="sm"
+                                                className="h-7 rounded-xl"
+                                                onClick={() => setSelectedProvider('all')}
+                                            >
+                                                Все
+                                            </Button>
+                                        </div>
+                                        <div className="mb-3 mt-1">
                                             <span className="text-xs font-medium text-muted-foreground pl-1">Available Models</span>
                                         </div>
                                         <div className="space-y-0.5">
-                                            {modelOptions.map((model) => {
+                                            {(selectedProvider === 'all' ? modelOptions : modelOptions.filter(m => getModelProvider(m.id) === selectedProvider)).map((model) => {
                                                 const isActive = selectedModel === model.id;
                                                 return (
                                                     <SpotlightCard
@@ -485,5 +511,4 @@ export const UnifiedConfigMenu: React.FC<UnifiedConfigMenuProps> = (props) => {
 };
 
 export default UnifiedConfigMenu;
-
 
