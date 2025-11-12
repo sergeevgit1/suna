@@ -79,17 +79,22 @@ def setup_provider_router(openai_compatible_api_key: str = None, openai_compatib
     config_openai_key = getattr(config, 'OPENAI_COMPATIBLE_API_KEY', None) if config else None
     config_openai_base = getattr(config, 'OPENAI_COMPATIBLE_API_BASE', None) if config else None
     
+    effective_key = openai_compatible_api_key or config_openai_key
+    effective_base = openai_compatible_api_base or config_openai_base
+
+    litellm_params_openai_compat = {"model": "openai/*"}
+    if effective_key:
+        litellm_params_openai_compat["api_key"] = effective_key
+    if effective_base:
+        litellm_params_openai_compat["api_base"] = effective_base
+
     model_list = [
         {
-            "model_name": "openai-compatible/*", # support OpenAI-Compatible LLM provider
-            "litellm_params": {
-                "model": "openai/*",
-                "api_key": openai_compatible_api_key or config_openai_key,
-                "api_base": openai_compatible_api_base or config_openai_base,
-            },
+            "model_name": "openai-compatible/*",
+            "litellm_params": litellm_params_openai_compat,
         },
         {
-            "model_name": "*", # supported LLM provider by LiteLLM
+            "model_name": "*",
             "litellm_params": {
                 "model": "*",
             },
@@ -113,14 +118,17 @@ def _configure_openai_compatible(params: Dict[str, Any], model_name: str, api_ke
     config_openai_base = getattr(config, 'OPENAI_COMPATIBLE_API_BASE', None) if config else None
     
     # Check if have required config either from parameters or environment
-    if (not api_key and not config_openai_key) or (
-        not api_base and not config_openai_base
-    ):
+    effective_api_key = api_key or config_openai_key
+    effective_api_base = api_base or config_openai_base
+
+    if (not effective_api_key) or (not effective_api_base):
         raise LLMError(
             "OPENAI_COMPATIBLE_API_KEY and OPENAI_COMPATIBLE_API_BASE is required for openai-compatible models. If just updated the environment variables, wait a few minutes or restart the service to ensure they are loaded."
         )
     
-    setup_provider_router(api_key, api_base)
+    setup_provider_router(effective_api_key, effective_api_base)
+    params["api_key"] = effective_api_key
+    params["api_base"] = effective_api_base
     logger.debug(f"Configured OpenAI-compatible provider with custom API base")
 
 def _add_tools_config(params: Dict[str, Any], tools: Optional[List[Dict[str, Any]]], tool_choice: str) -> None:
