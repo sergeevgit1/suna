@@ -42,6 +42,7 @@ import {
   ChevronDown,
   Search,
   Info,
+  KeyRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -62,12 +63,14 @@ import { AgentAvatar } from '../thread/content/agent-avatar';
 import { AgentIconEditorDialog } from './config/agent-icon-editor-dialog';
 import { AgentVersionSwitcher } from './agent-version-switcher';
 import type { ModelProvider } from '@/lib/model-provider-icons';
+import { useQuery } from '@tanstack/react-query';
+import { getAvailableModelsFromProvider, type AvailableModelsResponse } from '@/lib/api/billing';
 
 interface AgentConfigurationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agentId: string;
-  initialTab?: 'instructions' | 'tools' | 'integrations' | 'knowledge' | 'triggers';
+  initialTab?: 'general' | 'instructions' | 'tools' | 'integrations' | 'knowledge' | 'triggers' | 'provider';
   onAgentChange?: (agentId: string) => void;
 }
 
@@ -128,6 +131,19 @@ export function AgentConfigurationDialog({
   const [originalFormData, setOriginalFormData] = useState(formData);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<ModelProvider | 'all'>('all');
+  // Provider settings state
+  type ProviderType = 'openai-compatible';
+  const [provider, setProvider] = useState<ProviderType>('openai-compatible');
+  const [apiBase, setApiBase] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const canFetch = provider === 'openai-compatible' && !!apiBase.trim() && !!apiKey.trim();
+  const modelsQuery = useQuery<AvailableModelsResponse>({
+    queryKey: ['provider-models', provider, apiBase, apiKey],
+    queryFn: () => getAvailableModelsFromProvider(apiBase.trim(), apiKey.trim()),
+    enabled: canFetch,
+    staleTime: 60 * 1000,
+  });
+  const models = useMemo(() => (modelsQuery.data as AvailableModelsResponse | undefined)?.models || [], [modelsQuery.data]);
 
   useEffect(() => {
     if (!agent) return;
@@ -160,6 +176,15 @@ export function AgentConfigurationDialog({
     setOriginalFormData(newFormData);
     setEditName(configSource.name || '');
   }, [agent, versionData]);
+
+  // Prefill provider settings from agent metadata
+  useEffect(() => {
+    const meta = agent?.metadata?.provider_overrides?.openai_compatible;
+    if (meta) {
+      setApiBase(meta.api_base || '');
+      setApiKey(meta.api_key || '');
+    }
+  }, [agent?.metadata]);
 
   const isSunaAgent = agent?.metadata?.is_suna_default || false;
   const restrictions = agent?.metadata?.restrictions || {};
@@ -378,6 +403,7 @@ export function AgentConfigurationDialog({
     { id: 'integrations', label: 'Integrations', icon: Server, disabled: false },
     { id: 'knowledge', label: 'Knowledge', icon: BookOpen, disabled: false },
     { id: 'triggers', label: 'Triggers', icon: Zap, disabled: false },
+    { id: 'provider', label: 'Provider', icon: KeyRound, disabled: false },
   ];
 
   return (
@@ -717,6 +743,122 @@ export function AgentConfigurationDialog({
                 <TabsContent value="triggers" className="p-6 mt-0 flex flex-col h-full">
                   <div className="flex flex-col flex-1 min-h-0 h-full">
                     <AgentTriggersConfiguration agentId={agentId} />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="provider" className="p-6 mt-0 flex flex-col h-full">
+                  <div className="flex flex-col flex-1 gap-6">
+                    <div className="flex-shrink-0">
+                      <Label className="text-base font-semibold mb-3 block">Провайдер</Label>
+                      <div className="mt-2">
+                        <label className="inline-flex items-center gap-2 text-sm">
+                          <input
+                            type="radio"
+                            className="h-4 w-4"
+                            checked={provider === 'openai-compatible'}
+                            onChange={() => setProvider('openai-compatible')}
+                          />
+                          <span>OpenAI-Compatible</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {provider === 'openai-compatible' && (
+                      <div className="flex-shrink-0">
+                        <Label className="text-base font-semibold mb-3 block">Настройки провайдера</Label>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">API Base</Label>
+                            <Input
+                              value={apiBase}
+                              onChange={(e) => setApiBase(e.target.value)}
+                              placeholder="https://api.your-provider.com/v1"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">API Key</Label>
+                            <Input
+                              value={apiKey}
+                              onChange={(e) => setApiKey(e.target.value)}
+                              placeholder="sk-..."
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center gap-3">
+                          <Button
+                            onClick={() => modelsQuery.refetch()}
+                            disabled={!canFetch || modelsQuery.isFetching}
+                          >
+                            {modelsQuery.isFetching ? 'Загрузка…' : 'Загрузить модели'}
+                          </Button>
+                          {modelsQuery.isError && (
+                            <span className="text-sm text-red-600">Ошибка загрузки моделей</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex-shrink-0">
+                      <Label className="text-base font-semibold mb-3 block">Выбор модели</Label>
+                      {models.length === 0 ? (
+                        <p className="mt-2 text-sm text-muted-foreground">Нет моделей. Укажите API Base и API Key и загрузите модели.</p>
+                      ) : (
+                        <div className="mt-3 divide-y divide-border rounded-md border border-border">
+                          {models.map((m) => (
+                            <div key={m.id} className="flex items-center justify-between px-3 py-2">
+                              <label className="flex items-center gap-3">
+                                <input
+                                  type="radio"
+                                  name="provider-model"
+                                  className="h-4 w-4"
+                                  checked={formData.model === m.id}
+                                  onChange={() => setFormData(prev => ({ ...prev, model: m.id }))}
+                                />
+                                <span className="text-sm">{m.display_name || m.id}</span>
+                              </label>
+                              {m.short_name && (
+                                <span className="text-xs text-muted-foreground">{m.short_name}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const newMetadata = {
+                              ...(agent?.metadata || {}),
+                              provider_overrides: {
+                                ...(agent?.metadata?.provider_overrides || {}),
+                                openai_compatible: {
+                                  api_base: apiBase.trim(),
+                                  api_key: apiKey.trim(),
+                                },
+                              },
+                            };
+
+                            await updateAgentMutation.mutateAsync({
+                              agentId,
+                              model: formData.model,
+                              metadata: newMetadata,
+                            });
+
+                            toast.success('Настройки провайдера сохранены');
+                          } catch (e) {
+                            console.error(e);
+                            toast.error('Не удалось сохранить настройки провайдера');
+                          }
+                        }}
+                        disabled={updateAgentMutation.isPending}
+                      >
+                        {updateAgentMutation.isPending ? 'Сохранение…' : 'Сохранить'}
+                      </Button>
+                    </div>
                   </div>
                 </TabsContent>
               </div>
