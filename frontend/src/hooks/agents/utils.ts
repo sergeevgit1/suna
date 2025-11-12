@@ -46,6 +46,13 @@ export type Agent = {
     };
     installation_date?: string;
     last_central_update?: string;
+    // Переопределения провайдера для OpenAI-совместимых API
+    provider_overrides?: {
+      openai_compatible?: {
+        api_key?: string;
+        api_base?: string;
+      };
+    };
   };
 };
 
@@ -159,6 +166,8 @@ export type AgentUpdateRequest = {
   icon_color?: string | null;
   icon_background?: string | null;
   replace_mcps?: boolean;
+  // Возможность обновлять метаданные (в т.ч. provider_overrides)
+  metadata?: Agent['metadata'];
 };
 
 export const getAgents = async (params: AgentsParams = {}): Promise<AgentsResponse> => {

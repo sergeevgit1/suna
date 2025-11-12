@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 import httpx
 from typing import Dict
 
@@ -11,14 +11,20 @@ router = APIRouter(prefix="/llm", tags=["llm"])
 
 @router.get("/models")
 async def list_openai_compatible_models(
-    account_id: str = Depends(verify_and_get_user_id_from_jwt)
+    account_id: str = Depends(verify_and_get_user_id_from_jwt),
+    api_base: str | None = Query(None),
+    api_key: str | None = Query(None),
 ) -> Dict:
     """
     Прокси-эндпоинт для получения списка моделей от OpenAI-совместимого провайдера.
     Использует OPENAI_COMPATIBLE_API_BASE и OPENAI_COMPATIBLE_API_KEY из конфигурации.
     """
-    api_base = getattr(config, "OPENAI_COMPATIBLE_API_BASE", None)
-    api_key = getattr(config, "OPENAI_COMPATIBLE_API_KEY", None)
+    # Позволяем переопределить базу и ключ через query-параметры, иначе используем конфиг
+    config_api_base = getattr(config, "OPENAI_COMPATIBLE_API_BASE", None)
+    config_api_key = getattr(config, "OPENAI_COMPATIBLE_API_KEY", None)
+
+    api_base = api_base or config_api_base
+    api_key = api_key or config_api_key
 
     if not api_base or not api_key:
         logger.warning("OPENAI_COMPATIBLE_API_BASE или OPENAI_COMPATIBLE_API_KEY не настроены")

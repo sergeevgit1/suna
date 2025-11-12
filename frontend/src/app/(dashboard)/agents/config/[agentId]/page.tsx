@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAgent } from '@/hooks/agents/use-agents';
-import { ChevronLeft, Brain, BookOpen, Zap, Wrench, Server, Pencil, MessageCircle } from 'lucide-react';
+import { ChevronLeft, Brain, BookOpen, Zap, Wrench, Server, Pencil, MessageCircle, KeyRound } from 'lucide-react';
 import { KortixLoader } from '@/components/ui/kortix-loader';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,11 +15,12 @@ import { InstructionsScreen } from './screens/instructions-screen';
 import { KnowledgeScreen } from './screens/knowledge-screen';
 import { ToolsScreen } from './screens/tools-screen';
 import { IntegrationsScreen } from './screens/integrations-screen';
+import ProviderScreen from './screens/provider-screen';
 import { useUpdateAgent } from '@/hooks/agents/use-agents';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
-type ConfigView = 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations';
+type ConfigView = 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' | 'provider';
 
 export default function AgentConfigPage() {
   const params = useParams();
@@ -77,6 +78,7 @@ export default function AgentConfigPage() {
     { id: 'integrations' as const, label: 'Integrations', icon: Server },
     { id: 'knowledge' as const, label: 'Knowledge', icon: BookOpen },
     { id: 'triggers' as const, label: 'Triggers', icon: Zap },
+    { id: 'provider' as const, label: 'Provider', icon: KeyRound },
   ];
 
   return (
@@ -195,6 +197,7 @@ export default function AgentConfigPage() {
         {activeView === 'integrations' && <IntegrationsScreen agentId={agentId} />}
         {activeView === 'knowledge' && <KnowledgeScreen agentId={agentId} />}
         {activeView === 'triggers' && <TriggersScreen agentId={agentId} />}
+        {activeView === 'provider' && <ProviderScreen agentId={agentId} />}
       </div>
 
       {/* Agent Editor Dialog */}

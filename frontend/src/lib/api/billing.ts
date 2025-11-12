@@ -560,6 +560,22 @@ export const billingApi = {
     return response.data!;
   },
 
+  async getAvailableModelsFromProvider(apiBase: string, apiKey: string) {
+    const params = new URLSearchParams();
+    params.set('api_base', apiBase);
+    params.set('api_key', apiKey);
+    const response = await backendApi.get<AvailableModelsResponse>(`/llm/models?${params.toString()}`, {
+      showErrors: false,
+    });
+    if (response.error && response.error.status !== 401) {
+      throw response.error;
+    }
+    if (response.error) {
+      return { models: [], subscription_tier: 'none', total_models: 0 };
+    }
+    return response.data!;
+  },
+
   async scheduleDowngrade(request: ScheduleDowngradeRequest) {
     const response = await backendApi.post<ScheduleDowngradeResponse>(
       '/billing/schedule-downgrade',
@@ -611,3 +627,5 @@ export const cancelTrial = () => billingApi.cancelTrial();
 export const getSubscriptionCommitment = (subscriptionId: string) => 
   billingApi.getSubscriptionCommitment(subscriptionId);
 export const getAvailableModels = () => billingApi.getAvailableModels(); 
+export const getAvailableModelsFromProvider = (apiBase: string, apiKey: string) => 
+  billingApi.getAvailableModelsFromProvider(apiBase, apiKey);
