@@ -18,6 +18,8 @@ class AgentCreateRequest(BaseModel):
     icon_name: Optional[str] = None
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
+    # Дополнительные настройки, включая provider_overrides
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class AgentUpdateRequest(BaseModel):
@@ -34,6 +36,8 @@ class AgentUpdateRequest(BaseModel):
     icon_color: Optional[str] = None
     icon_background: Optional[str] = None
     replace_mcps: Optional[bool] = None
+    # Дополнительные настройки, включая provider_overrides
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class AgentVersionResponse(BaseModel):
@@ -131,5 +135,4 @@ class AgentIconGenerationResponse(BaseModel):
     icon_name: str
     icon_color: str
     icon_background: str
-
 

@@ -222,6 +222,9 @@ async def update_agent(
             update_data["icon_color"] = agent_data.icon_color
         if agent_data.icon_background is not None:
             update_data["icon_background"] = agent_data.icon_background
+        # Обновление произвольных метаданных (включая provider_overrides)
+        if agent_data.metadata is not None:
+            update_data["metadata"] = agent_data.metadata
         
         # Debug logging for update_data
         if config.ENV_MODE == EnvMode.STAGING:
@@ -568,7 +571,8 @@ async def create_agent(
             "icon_color": agent_data.icon_color or "#000000",
             "icon_background": agent_data.icon_background or "#F3F4F6",
             "is_default": agent_data.is_default or False,
-            "version_count": 1
+            "version_count": 1,
+            "metadata": agent_data.metadata or {}
         }
         
         if config.ENV_MODE == EnvMode.STAGING:

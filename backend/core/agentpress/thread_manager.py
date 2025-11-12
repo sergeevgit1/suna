@@ -528,13 +528,47 @@ class ThreadManager:
 
             # Make LLM call
             try:
+                # Resolve per-thread / per-agent provider overrides for OpenAI-compatible models
+                api_key_override: Optional[str] = None
+                api_base_override: Optional[str] = None
+
+                # 1) Try agent-level metadata overrides
+                try:
+                    agent_meta = (self.agent_config or {}).get('metadata') if isinstance(self.agent_config, dict) else None
+                    if isinstance(agent_meta, dict):
+                        provider_overrides = agent_meta.get('provider_overrides') or {}
+                        openai_compat = provider_overrides.get('openai_compatible') or agent_meta.get('openai_compatible') or {}
+                        if isinstance(openai_compat, dict):
+                            api_key_override = openai_compat.get('api_key') or api_key_override
+                            api_base_override = openai_compat.get('api_base') or api_base_override
+                except Exception:
+                    pass
+
+                # 2) Fallback to thread-level metadata overrides
+                try:
+                    if api_key_override is None or api_base_override is None:
+                        client = await self.db.client
+                        tmeta_result = await client.table('threads').select('metadata').eq('thread_id', thread_id).single().execute()
+                        if tmeta_result.data:
+                            tmeta = tmeta_result.data.get('metadata') or {}
+                            provider_overrides = tmeta.get('provider_overrides') or {}
+                            openai_compat = provider_overrides.get('openai_compatible') or tmeta.get('openai_compatible') or {}
+                            if isinstance(openai_compat, dict):
+                                api_key_override = openai_compat.get('api_key') or api_key_override
+                                api_base_override = openai_compat.get('api_base') or api_base_override
+                except Exception:
+                    # Non-fatal: just skip overrides
+                    pass
+
                 llm_response = await make_llm_api_call(
                     prepared_messages, llm_model,
                     temperature=llm_temperature,
                     max_tokens=llm_max_tokens,
                     tools=openapi_tool_schemas,
                     tool_choice=tool_choice if config.native_tool_calling else "none",
-                    stream=stream
+                    stream=stream,
+                    api_key=api_key_override,
+                    api_base=api_base_override,
                 )
             except LLMError as e:
                 return {"type": "status", "status": "error", "message": str(e)}
