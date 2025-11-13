@@ -32,7 +32,7 @@ export default function ProviderScreen({ agentId }: ProviderScreenProps) {
     }
   }, [agent?.metadata, agent?.model]);
 
-  const canFetch = provider === "openai-compatible" && apiBase.trim() && apiKey.trim();
+  const canFetch = !!(provider === "openai-compatible" && apiBase.trim() && apiKey.trim());
 
   const modelsQuery = useQuery<AvailableModelsResponse>({
     queryKey: ["provider-models", provider, apiBase, apiKey],
