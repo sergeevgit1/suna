@@ -53,6 +53,14 @@ export type Agent = {
         api_base?: string;
       };
     };
+    // Сохранённые провайдеры
+    saved_providers?: Array<{
+      id: string;
+      name: string;
+      api_base: string;
+      api_key: string;
+      models?: string[];
+    }>;
   };
 };
 
