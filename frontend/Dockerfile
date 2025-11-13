@@ -1,4 +1,5 @@
-# syntax=docker.io/docker/dockerfile:1
+# syntax=docker.io/docker/dockerfile:1.4
+
 # ---- Base Stage ----
 FROM node:22-slim AS base
 
@@ -23,7 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     librsvg2-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN \
+# Use cache mount for npm to speed up dependency installation
+RUN --mount=type=cache,target=/root/.npm \
   if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
   elif [ -f package-lock.json ]; then npm ci; \
   elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
@@ -64,7 +66,8 @@ ENV NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}
 ENV KORTIX_ADMIN_API_KEY=${KORTIX_ADMIN_API_KEY}
 ENV EDGE_CONFIG=${EDGE_CONFIG}
 
-RUN \
+# Use cache mount for Next.js build cache to speed up incremental builds
+RUN --mount=type=cache,target=/app/.next/cache \
   if [ -f yarn.lock ]; then yarn run build; \
   elif [ -f package-lock.json ]; then npm run build; \
   elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm run build; \

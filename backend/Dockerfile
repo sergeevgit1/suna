@@ -1,3 +1,5 @@
+# syntax=docker.io/docker/dockerfile:1.4
+
 FROM ghcr.io/astral-sh/uv:python3.11-alpine
 
 ENV ENV_MODE production
@@ -10,10 +12,14 @@ RUN apk add --no-cache curl git \
     musl-dev \
     python3-dev
 
-# Install Python dependencies
+# Install Python dependencies with cache mount for uv
 COPY pyproject.toml uv.lock ./
 ENV UV_LINK_MODE=copy
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --quiet
+
+# Use cache mount for uv to speed up dependency installation
+# The cache persists between builds, so unchanged packages are reused
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --locked --quiet
 
 # Copy application code
 COPY . .
