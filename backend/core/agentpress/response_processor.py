@@ -598,7 +598,9 @@ class ResponseProcessor:
 
             # Don't save partial response if user stopped (cancelled)
             # But do save for other early stops like XML limit reached
-            if accumulated_content and not should_auto_continue and finish_reason != "cancelled":
+            # CRITICAL FIX: Also save if there are tool calls even without text content
+            has_tool_calls = (xml_tool_call_count > 0 or len(complete_native_tool_calls) > 0)
+            if (accumulated_content or has_tool_calls) and not should_auto_continue and finish_reason != "cancelled":
                 # ... (Truncate accumulated_content logic) ...
                 if config.max_xml_tool_calls > 0 and xml_tool_call_count >= config.max_xml_tool_calls and xml_chunks_buffer:
                     last_xml_chunk = xml_chunks_buffer[-1]
@@ -708,7 +710,11 @@ class ResponseProcessor:
                     logger.info(f"Processing {len(tool_results_buffer)} buffered tool results")
                     self.trace.event(name="processing_buffered_tool_results", level="DEFAULT", status_message=(f"Processing {len(tool_results_buffer)} buffered tool results"))
                     for tool_call, result, tool_idx, context in tool_results_buffer:
-                        if last_assistant_message_object: context.assistant_message_id = last_assistant_message_object['message_id']
+                        if last_assistant_message_object:
+                            context.assistant_message_id = last_assistant_message_object['message_id']
+                        else:
+                            logger.warning(f"CRITICAL: last_assistant_message_object is None for tool_idx {tool_idx}, tool: {tool_call.get('function_name', 'unknown')}")
+                            logger.warning(f"accumulated_content length: {len(accumulated_content) if accumulated_content else 0}, xml_tool_call_count: {xml_tool_call_count}")
                         tool_results_map[tool_idx] = (tool_call, result, context)
 
                 # Or execute now if not streamed
@@ -752,6 +758,12 @@ class ResponseProcessor:
                         context.result = result
                         if not context.assistant_message_id and last_assistant_message_object:
                             context.assistant_message_id = last_assistant_message_object['message_id']
+                            logger.info(f"Updated context.assistant_message_id to {context.assistant_message_id} for tool_idx {tool_idx}")
+                        
+                        # CRITICAL CHECK: Log if assistant_message_id is still None
+                        if not context.assistant_message_id:
+                            logger.error(f"CRITICAL: context.assistant_message_id is STILL None for tool_idx {tool_idx}, tool: {tool_call.get('function_name', 'unknown')}")
+                            logger.error(f"This will cause 'Could not find details for this tool call' error in frontend!")
 
                         # Yield start status ONLY IF executing non-streamed (already yielded if streamed)
                         if not config.execute_on_stream and tool_idx not in yielded_tool_indices:
