@@ -134,6 +134,7 @@ export function AgentConfigurationDialog({
   // Provider settings state
   type ProviderType = 'openai-compatible';
   const [provider, setProvider] = useState<ProviderType>('openai-compatible');
+  const [providerName, setProviderName] = useState('');
   const [apiBase, setApiBase] = useState('');
   const [apiKey, setApiKey] = useState('');
   const canFetch = provider === 'openai-compatible' && !!apiBase.trim() && !!apiKey.trim();
@@ -183,6 +184,14 @@ export function AgentConfigurationDialog({
     if (meta) {
       setApiBase(meta.api_base || '');
       setApiKey(meta.api_key || '');
+    }
+    // Load provider name from saved providers
+    const savedProviders = agent?.metadata?.saved_providers || [];
+    const currentProvider = savedProviders.find((p: any) => 
+      p.api_base === meta?.api_base && p.api_key === meta?.api_key
+    );
+    if (currentProvider) {
+      setProviderName(currentProvider.name || '');
     }
   }, [agent?.metadata]);
 
@@ -766,10 +775,23 @@ export function AgentConfigurationDialog({
                     {provider === 'openai-compatible' && (
                       <div className="flex-shrink-0">
                         <Label className="text-base font-semibold mb-3 block">Настройки провайдера</Label>
-                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4">
                           <div>
-                            <Label className="text-xs text-muted-foreground">API Base</Label>
+                            <Label className="text-xs text-muted-foreground">Название провайдера</Label>
                             <Input
+                              type="text"
+                              autoComplete="off"
+                              value={providerName}
+                              onChange={(e) => setProviderName(e.target.value)}
+                              placeholder="Например: OpenRouter, Together AI"
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">API Base URL</Label>
+                            <Input
+                              type="text"
+                              autoComplete="off"
                               value={apiBase}
                               onChange={(e) => setApiBase(e.target.value)}
                               placeholder="https://api.your-provider.com/v1"
@@ -779,6 +801,8 @@ export function AgentConfigurationDialog({
                           <div>
                             <Label className="text-xs text-muted-foreground">API Key</Label>
                             <Input
+                              type="password"
+                              autoComplete="off"
                               value={apiKey}
                               onChange={(e) => setApiKey(e.target.value)}
                               placeholder="sk-..."
@@ -786,15 +810,18 @@ export function AgentConfigurationDialog({
                             />
                           </div>
                         </div>
-                        <div className="mt-4 flex items-center gap-3">
+                        <div className="mt-4 space-y-3">
                           <Button
                             onClick={() => modelsQuery.refetch()}
                             disabled={!canFetch || modelsQuery.isFetching}
+                            className="w-full sm:w-auto"
                           >
                             {modelsQuery.isFetching ? 'Загрузка…' : 'Загрузить модели'}
                           </Button>
                           {modelsQuery.isError && (
-                            <span className="text-sm text-red-600">Ошибка загрузки моделей</span>
+                            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md">
+                              Ошибка загрузки моделей. Проверьте API Base и API Key.
+                            </div>
                           )}
                         </div>
                       </div>
@@ -831,8 +858,33 @@ export function AgentConfigurationDialog({
                       <Button
                         onClick={async () => {
                           try {
+                            // Validate provider name
+                            if (!providerName.trim()) {
+                              toast.error('Введите название провайдера');
+                              return;
+                            }
+                            
+                            // Save provider to saved_providers list
+                            const savedProviders = agent?.metadata?.saved_providers || [];
+                            const existingProviderIndex = savedProviders.findIndex((p: any) => 
+                              p.api_base === apiBase.trim() && p.api_key === apiKey.trim()
+                            );
+                            
+                            const newProvider = {
+                              id: existingProviderIndex >= 0 ? savedProviders[existingProviderIndex].id : `provider-${Date.now()}`,
+                              name: providerName.trim(),
+                              api_base: apiBase.trim(),
+                              api_key: apiKey.trim(),
+                              models: models.map(m => m.id),
+                            };
+                            
+                            const updatedProviders = existingProviderIndex >= 0
+                              ? savedProviders.map((p: any, idx: number) => idx === existingProviderIndex ? newProvider : p)
+                              : [...savedProviders, newProvider];
+                            
                             const newMetadata = {
                               ...(agent?.metadata || {}),
+                              saved_providers: updatedProviders,
                               provider_overrides: {
                                 ...(agent?.metadata?.provider_overrides || {}),
                                 openai_compatible: {
@@ -848,15 +900,15 @@ export function AgentConfigurationDialog({
                               metadata: newMetadata,
                             });
 
-                            toast.success('Настройки провайдера сохранены');
+                            toast.success('Провайдер сохранён');
                           } catch (e) {
                             console.error(e);
-                            toast.error('Не удалось сохранить настройки провайдера');
+                            toast.error('Не удалось сохранить провайдер');
                           }
                         }}
-                        disabled={updateAgentMutation.isPending}
+                        disabled={updateAgentMutation.isPending || !providerName.trim() || !apiBase.trim() || !apiKey.trim() || !formData.model}
                       >
-                        {updateAgentMutation.isPending ? 'Сохранение…' : 'Сохранить'}
+                        {updateAgentMutation.isPending ? 'Сохранение…' : 'Сохранить провайдер'}
                       </Button>
                     </div>
                   </div>
