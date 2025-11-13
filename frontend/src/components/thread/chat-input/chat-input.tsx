@@ -121,6 +121,7 @@ export interface ChatInputProps {
   selectedTemplate?: string | null;
   threadId?: string | null;
   projectId?: string;
+  threadSelectedModel?: string | null;
 }
 
 export interface UploadedFile {
@@ -173,6 +174,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
       selectedTemplate = null,
       threadId = null,
       projectId,
+      threadSelectedModel: initialThreadSelectedModel = null,
     },
     ref,
   ) => {
@@ -208,7 +210,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
     const [mounted, setMounted] = useState(false);
     const [animatedPlaceholder, setAnimatedPlaceholder] = useState('');
     const [isModeDismissing, setIsModeDismissing] = useState(false);
-    const [threadSelectedModel, setThreadSelectedModel] = useState<string | null>(null);    // Suna Agent Modes feature flag
+    const [threadSelectedModel, setThreadSelectedModel] = useState<string | null>(initialThreadSelectedModel);    // Suna Agent Modes feature flag
     const ENABLE_SUNA_AGENT_MODES = false;
     const [sunaAgentModes, setSunaAgentModes] = useState<'adaptive' | 'autonomous' | 'chat'>('adaptive');
 
@@ -300,23 +302,12 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
       }
     }, [agents, onAgentSelect, initializeFromAgents]);
 
-    // Загрузка selected_model из thread при монтировании
+    // Синхронизация threadSelectedModel с props
     useEffect(() => {
-      if (threadId) {
-        const loadThreadModel = async () => {
-          try {
-            const { getThread } = await import('@/hooks/threads/utils');
-            const thread = await getThread(threadId);
-            if (thread.selected_model) {
-              setThreadSelectedModel(thread.selected_model);
-            }
-          } catch (error) {
-            console.error('Failed to load thread model:', error);
-          }
-        };
-        loadThreadModel();
+      if (initialThreadSelectedModel !== threadSelectedModel) {
+        setThreadSelectedModel(initialThreadSelectedModel);
       }
-    }, [threadId]);
+    }, [initialThreadSelectedModel]);
 
     useEffect(() => {
       setMounted(true);

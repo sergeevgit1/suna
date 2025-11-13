@@ -1048,6 +1048,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
                 showScrollToBottomIndicator={showScrollToBottom}
                 onScrollToBottom={scrollToBottom}
                 threadId={threadId}
+                threadSelectedModel={threadQuery.data?.selected_model || null}
               />
             </div>
           )}
@@ -1184,6 +1185,7 @@ export function ThreadComponent({ projectId, threadId, compact = false, configur
                 selectedAgentId={selectedAgentId}
                 onAgentSelect={handleAgentSelect}
                 threadId={threadId}
+                threadSelectedModel={threadQuery.data?.selected_model || null}
                 hideAgentSelection={!!configuredAgentId}
                 toolCalls={toolCalls}
                 toolCallIndex={currentToolIndex}
