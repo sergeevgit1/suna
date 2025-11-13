@@ -454,14 +454,15 @@ async def update_thread(
     request: Request,
     title: Optional[str] = Body(None, embed=True),
     is_public: Optional[bool] = Body(None, embed=True),
+    selected_model: Optional[str] = Body(None, embed=True),
     auth: AuthorizedThreadAccess = Depends(require_thread_access)
 ):
-    """Update thread title (updates the associated project name) and/or public status."""
+    """Update thread title (updates the associated project name), public status, and/or selected model."""
     logger.debug(f"Updating thread: {thread_id}")
     client = await utils.db.client
     
     try:
-        if title is None and is_public is None:
+        if title is None and is_public is None and selected_model is None:
             raise HTTPException(status_code=400, detail="No update data provided")
         
         # Get the thread to find its project_id
@@ -495,6 +496,11 @@ async def update_thread(
         if is_public is not None:
             thread_update_data['is_public'] = is_public
             logger.debug(f"Updating thread {thread_id} is_public to: {is_public}")
+        
+        # Update selected_model if provided
+        if selected_model is not None:
+            thread_update_data['selected_model'] = selected_model
+            logger.debug(f"Updating thread {thread_id} selected_model to: {selected_model}")
             
             # Also update project if it exists
             if project_id:

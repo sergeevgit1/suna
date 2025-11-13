@@ -12,6 +12,7 @@ export type Thread = {
     is_public?: boolean;
     created_at: string;
     updated_at: string;
+    selected_model?: string | null;
     metadata?: {
       agent_id?: string;
     

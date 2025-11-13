@@ -316,3 +316,42 @@ export const getMessages = async (threadId: string): Promise<Message[]> => {
   }
 };
 
+
+export const updateThreadModel = async (
+  threadId: string,
+  selectedModel: string | null,
+): Promise<void> => {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new NoAccessTokenAvailableError();
+    }
+
+    const API_URL = process.env.NEXT_PUBLIC_BACKEND_URL;
+
+    const response = await fetch(`${API_URL}/threads/${threadId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ selected_model: selectedModel }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error('Error updating thread model:', errorText);
+      handleApiError(new Error(errorText), { operation: 'update thread model', resource: 'thread' });
+      throw new Error(`Error updating thread model: ${errorText}`);
+    }
+  } catch (error) {
+    if (error instanceof NoAccessTokenAvailableError) {
+      throw error;
+    }
+    console.error('Failed to update thread model:', error);
+    handleApiError(error, { operation: 'update thread model', resource: 'thread' });
+    throw error;
+  }
+};

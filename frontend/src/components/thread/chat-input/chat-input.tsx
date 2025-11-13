@@ -31,6 +31,7 @@ import { useFileDelete } from '@/hooks/files';
 import { useQueryClient } from '@tanstack/react-query';
 import { ToolCallInput } from './floating-tool-preview';
 import { ChatSnack } from './chat-snack';
+import { ModelSelector } from './model-selector';
 import { Brain, Zap, Database, ArrowDown, Wrench } from 'lucide-react';
 import { useComposioToolkitIcon } from '@/hooks/composio/use-composio';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -206,7 +207,8 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
     const [agentConfigDialog, setAgentConfigDialog] = useState<{ open: boolean; tab: 'instructions' | 'knowledge' | 'triggers' | 'tools' | 'integrations' }>({ open: false, tab: 'instructions' });
     const [mounted, setMounted] = useState(false);
     const [animatedPlaceholder, setAnimatedPlaceholder] = useState('');
-    const [isModeDismissing, setIsModeDismissing] = useState(false);    // Suna Agent Modes feature flag
+    const [isModeDismissing, setIsModeDismissing] = useState(false);
+    const [threadSelectedModel, setThreadSelectedModel] = useState<string | null>(null);    // Suna Agent Modes feature flag
     const ENABLE_SUNA_AGENT_MODES = false;
     const [sunaAgentModes, setSunaAgentModes] = useState<'adaptive' | 'autonomous' | 'chat'>('adaptive');
 
@@ -297,6 +299,24 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
         initializeFromAgents(agents);
       }
     }, [agents, onAgentSelect, initializeFromAgents]);
+
+    // Загрузка selected_model из thread при монтировании
+    useEffect(() => {
+      if (threadId) {
+        const loadThreadModel = async () => {
+          try {
+            const { getThread } = await import('@/hooks/threads/utils');
+            const thread = await getThread(threadId);
+            if (thread.selected_model) {
+              setThreadSelectedModel(thread.selected_model);
+            }
+          } catch (error) {
+            console.error('Failed to load thread model:', error);
+          }
+        };
+        loadThreadModel();
+      }
+    }, [threadId]);
 
     useEffect(() => {
       setMounted(true);
@@ -450,7 +470,9 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
         message = message + slidesTemplateMarkdown;
       }
 
-      const baseModelName = selectedModel ? getActualModelId(selectedModel) : undefined;
+      // Приоритет: модель чата > модель агента > глобальная модель
+      const effectiveModel = threadSelectedModel || selectedModel;
+      const baseModelName = effectiveModel ? getActualModelId(effectiveModel) : undefined;
 
       posthog.capture("task_prompt_submitted", { message });
 
@@ -812,6 +834,24 @@ export const ChatInput = memo(forwardRef<ChatInputHandles, ChatInputProps>(
             onTranscription={handleTranscription}
             disabled={loading || (disabled && !isAgentRunning)}
           />}
+
+          {isLoggedIn && threadId && (
+            <ModelSelector
+              selectedModel={threadSelectedModel}
+              onModelChange={async (modelId) => {
+                setThreadSelectedModel(modelId);
+                // Сохраняем в thread
+                try {
+                  const { updateThreadModel } = await import('@/lib/api/threads');
+                  await updateThreadModel(threadId, modelId);
+                } catch (error) {
+                  console.error('Failed to update thread model:', error);
+                }
+              }}
+              agentDefaultModel={selectedAgent?.model}
+              compact={true}
+            />
+          )}
 
           <div className="relative">
             {/* Context Usage Indicator - disabled by default */}
